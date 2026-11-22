@@ -255,13 +255,14 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
     { id: 'sleep-ontime', w: 1.5 },
     { id: 'journal', w: 1.5 },
     { id: 'meditation', w: 1 },
+    { id: 'stretch', w: 1.2 },
     { id: 'reading', w: 1.2 },
     { id: 'learn', w: 0.8 },
     { id: 'meal-prep', w: free ? 1.2 : 0.4 },
     { id: 'assignment', w: ctx.flags.college || A?.study ? 2 : 0 },
   ]
     // Recovery days keep only restful extras
-    .filter((c) => !A?.gentle || ['sleep-ontime', 'journal', 'meditation', 'reading'].includes(c.id))
+    .filter((c) => !A?.gentle || ['sleep-ontime', 'journal', 'meditation', 'reading', 'stretch'].includes(c.id))
     .filter((c) => byId.has(c.id) && !taken.has(c.id));
 
   let anyNeglected = false;
@@ -274,7 +275,7 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
   }
 
   const desired = Math.min(5, Math.max(picks.length, 3 + (free ? 1 : 0) + (anyNeglected ? 1 : 0)));
-  const bases: Record<string, number> = { gym: 45 * phys, pending: 2, chores: 1, 'sleep-ontime': 1, journal: 1, meditation: 10, reading: 20, learn: 1, 'meal-prep': 1, assignment: 1 };
+  const bases: Record<string, number> = { gym: 45 * phys, pending: 2, chores: 1, 'sleep-ontime': 1, journal: 1, meditation: 10, stretch: 15, reading: 20, learn: 1, 'meal-prep': 1, assignment: 1 };
   const usedCats = new Set(picks.map((p) => byId.get(p.presetIds![0])?.categoryId));
   while (picks.length < desired && pool.length) {
     const live = pool.filter((c) => c.w > 0);

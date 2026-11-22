@@ -33,6 +33,7 @@ interface P {
 }
 
 const PACE: PerfSpec = { kind: 'pace', label: 'Total time (minutes)', unit: 'min/km' };
+const REPS: PerfSpec = { kind: 'higher', label: 'Most reps in one set', unit: 'reps' };
 const LIFT: PerfSpec = { kind: 'higher', label: 'Heaviest weight lifted (kg)', unit: 'kg' };
 const PLAY: PerfSpec = { kind: 'higher', label: 'How well did you play? (1-10, honest rating)', unit: '/10' };
 
@@ -91,8 +92,16 @@ export const DEFAULT_PRESETS: Preset[] = [
   task({ id: 'walk', c: 'cardio', n: 'Walk', u: 'minutes', q: 30, x: 0.8, gu: 0.3, hpu: -0.03 }),
   // Strength (STR)
   task({ id: 'gym', c: 'strength', n: 'Gym session', u: 'minutes', q: 45, b: 10, x: 0.9, g: 5, gu: 0.3, hpu: -0.2, perf: LIFT }),
+  task({ id: 'pushups', c: 'strength', n: 'Push-ups', u: 'count', q: 20, x: 0.6, gu: 0.2, hpu: -0.03, perf: REPS }),
+  task({ id: 'pullups', c: 'strength', n: 'Pull-ups', u: 'count', q: 8, x: 1.5, gu: 0.5, hpu: -0.1, perf: REPS }),
+  task({ id: 'plank', c: 'strength', n: 'Plank / core hold', u: 'minutes', q: 2, x: 5, gu: 1.5, hpu: -0.3 }),
+  task({ id: 'plyo', c: 'strength', n: 'Plyometrics / jumps', u: 'minutes', q: 15, x: 1, gu: 0.3, hpu: -0.15, w: { STR: 0.5, AGI: 0.5 } }),
   task({ id: 'bodyweight', c: 'strength', n: 'Bodyweight reps', u: 'count', q: 20, x: 0.5, gu: 0.2 }),
-  // Sports now live in Cardio & Sports (one shared mastery). They split their stat gain between AGI and STR.
+  task({ id: 'incline-walk', c: 'cardio', n: 'Incline walking', u: 'minutes', q: 30, x: 1, gu: 0.3, hpu: -0.06 }),
+  task({ id: 'cycling', c: 'cardio', n: 'Cycling', u: 'minutes', q: 45, x: 0.85, gu: 0.3, hpu: -0.08 }),
+  task({ id: 'jump-rope', c: 'cardio', n: 'Jump rope', u: 'minutes', q: 10, x: 1.2, gu: 0.35, hpu: -0.2 }),
+  task({ id: 'swimming', c: 'cardio', n: 'Swimming', u: 'minutes', q: 30, x: 1.1, gu: 0.35, hpu: -0.1 }),
+  // Sports (AGI + STR)
   task({ id: 'badminton', c: 'cardio', n: 'Badminton', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY, w: SPORT_SPLIT }),
   task({ id: 'basketball', c: 'cardio', n: 'Basketball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY, w: SPORT_SPLIT }),
   task({ id: 'volleyball', c: 'cardio', n: 'Volleyball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY, w: SPORT_SPLIT }),
@@ -105,6 +114,8 @@ export const DEFAULT_PRESETS: Preset[] = [
   task({ id: 'pending', c: 'tasks', n: 'Clear a pending task', u: 'count', q: 1, x: 15, gu: 5 }),
   task({ id: 'chores', c: 'tasks', n: 'House chores', u: 'count', q: 1, x: 15, gu: 5 }),
   // Recovery (VIT)
+  task({ id: 'stretch', c: 'recovery', n: 'Stretching / mobility', u: 'minutes', q: 15, x: 0.8, gu: 0.2, hpu: 0.1 }),
+  task({ id: 'yoga', c: 'recovery', n: 'Yoga', u: 'minutes', q: 30, x: 0.9, gu: 0.25, hpu: 0.05, w: { VIT: 0.6, SEN: 0.4 } }),
   task({ id: 'sleep-hours', c: 'recovery', n: 'Sleep', u: 'hours', q: 8, x: 6, gu: 1, hpu: 2.5, cap: 9 }),
   task({ id: 'sleep-ontime', c: 'recovery', n: 'Slept on time', b: 25, g: 5, hp: 10 }),
   task({ id: 'wake-ontime', c: 'recovery', n: 'Woke on time', b: 20, g: 4 }),
