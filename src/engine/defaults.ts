@@ -79,6 +79,7 @@ const penalty = (
   breaksStreak,
   penaltyQuest: quest,
   builtin: true,
+  hidden: id === 'p-quests',
 });
 
 export const DEFAULT_PRESETS: Preset[] = [
@@ -121,5 +122,6 @@ export const DEFAULT_PRESETS: Preset[] = [
   penalty('p-late-sleep', 'Late-night sleep', 8, 6, true, { text: 'Aim for an early bedtime tonight.', presetId: 'sleep-ontime', qty: 1 }),
   penalty('p-doomscroll', 'Procrastination / doomscrolling', 8, 3, true, { text: 'Take a 15-minute walk to reset.', presetId: 'walk', qty: 15 }),
   penalty('p-deadline', 'Missed a deadline', 10, 4, true, { text: 'Clear one small pending task now.', presetId: 'pending', qty: 1 }),
+  penalty('p-quests', 'Daily quests missed', 6, 2, false, { text: 'Take a 15-minute walk to reset.', presetId: 'walk', qty: 15 }),
   penalty('p-skip-meal', 'Skipped a meal', 4, 4, false, { text: 'Have a proper meal or snack when you can.', presetId: 'healthy-meal', qty: 1 }),
 ];

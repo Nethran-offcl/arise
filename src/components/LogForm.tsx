@@ -34,6 +34,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
   const progress = useProgress();
   const announce = useCelebrate((s) => s.announce);
   const say = useCelebrate((s) => s.say);
+  const announceQuests = useCelebrate((s) => s.announceQuests);
 
   const [qty, setQty] = useState(String(existing?.qty ?? preset.defaultQty));
   const [intensity, setIntensity] = useState<Intensity>(existing?.intensity ?? 'normal');
@@ -91,8 +92,9 @@ export function LogForm({ preset, existing, onDone }: Props) {
     const input = { presetId: preset.id, qty: q, intensity, ts: new Date(when).getTime() || Date.now(), note: note.trim() || undefined, perf: perfValue };
     try {
       if (existing?.id) {
-        await updateLog(existing.id, input);
+        const done = await updateLog(existing.id, input);
         say('[SYSTEM] Log updated.');
+        announceQuests(done);
       } else {
         announce(await logActivity(input));
       }

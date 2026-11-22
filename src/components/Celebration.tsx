@@ -40,6 +40,15 @@ export function Celebration() {
                 </p>
               </>
             )}
+            {c.kind === 'boss' && (
+              <>
+                <p className="sys-title">[ Raid Complete ]</p>
+                <motion.p className="my-3 text-4xl font-black glow-text" animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 1.6 }}>BOSS DEFEATED</motion.p>
+                <p className="text-lg font-bold">{c.name}</p>
+                <p className="mt-3 text-accent">+{c.xp.toLocaleString()} XP · +{c.gold} gold</p>
+                <p className="mt-2 text-sm text-muted">[SYSTEM] A new raid begins on Monday.</p>
+              </>
+            )}
             {c.kind === 'penaltyQuest' && (
               <>
                 <p className="sys-title">[ Optional Penalty Quest ]</p>

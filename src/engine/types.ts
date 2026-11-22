@@ -67,4 +67,6 @@ export interface Preset {
   breaksStreak: boolean;
   penaltyQuest?: PenaltyQuestHint;
   builtin: boolean;
+  /** Hidden from the Log screen (used for system penalties like "Daily quests missed"). */
+  hidden?: boolean;
 }

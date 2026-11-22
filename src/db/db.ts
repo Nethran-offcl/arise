@@ -1,4 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
+import type { Quest, QuestTemplate } from '../engine/quests';
+import type { InventoryRow, Purchase, ShopItem } from '../engine/shop';
 import { emptyStats, type Category, type Intensity, type Preset, type Stats } from '../engine/types';
 
 /** Single-row player profile (id is always 1). Level and rank are derived from totalXp. */
@@ -60,6 +62,11 @@ export class AriseDB extends Dexie {
   settings!: EntityTable<Setting, 'key'>;
   categories!: EntityTable<Category, 'id'>;
   presets!: EntityTable<Preset, 'id'>;
+  quests!: EntityTable<Quest, 'id'>;
+  questTemplates!: EntityTable<QuestTemplate, 'id'>;
+  shop!: EntityTable<ShopItem, 'id'>;
+  purchases!: EntityTable<Purchase, 'id'>;
+  inventory!: EntityTable<InventoryRow, 'id'>;
 
   constructor() {
     super('arise');
@@ -91,6 +98,19 @@ export class AriseDB extends Dexie {
             delete p.xp;
           }),
       );
+    // v3: quests, repeating quest templates, the shop, purchase history and consumables.
+    this.version(3).stores({
+      profile: 'id',
+      logs: '++id, ts, categoryId, presetId, isPenalty',
+      settings: 'key',
+      categories: 'id, order',
+      presets: 'id, categoryId',
+      quests: '++id, &key, kind, status, periodStart',
+      questTemplates: '++id',
+      shop: 'id, order',
+      purchases: '++id, ts',
+      inventory: 'id',
+    });
   }
 }
 

@@ -15,9 +15,27 @@ export function dayKey(ts: number): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-function shiftDay(key: string, delta: number): string {
+export function shiftDay(key: string, delta: number): string {
   const [y, m, d] = key.split('-').map(Number);
   return dayKey(new Date(y, m - 1, d + delta, 12).getTime());
+}
+
+/** The moment a day begins (local midnight + the day-start hour). Day D covers [dayStartTs(D), dayStartTs(D+1)). */
+export function dayStartTs(key: string): number {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d, dayStartHour).getTime();
+}
+
+/** 0 = Sunday ... 6 = Saturday, for a day key. */
+export function weekdayOf(key: string): number {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d, 12).getDay();
+}
+
+/** The Monday that starts the week containing this day key. */
+export function weekStartKey(key: string): string {
+  const wd = weekdayOf(key);
+  return shiftDay(key, -((wd + 6) % 7));
 }
 
 /** Whole days from key `a` to key `b`. */

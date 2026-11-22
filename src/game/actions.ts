@@ -4,13 +4,15 @@ import { computePenalty, computeReward, DEFAULT_FORMULA, maxQtyFor, presetWeight
 import { applyXpDelta, freeStatPoints, levelFromXp, levelScale } from '../engine/levels';
 import { masteryInfo, performanceBonus } from '../engine/progress';
 import { loadProgressInputs } from './progress';
+import { evaluateQuests, type QuestCompletion } from './quests';
+import { doubleXpBoost } from './shop';
 import { rankInfoForLevel } from '../engine/ranks';
 import { dayKey, setDayStartHour } from '../engine/streak';
 import type { Intensity, PenaltyQuestHint, PlayMode, StatKey } from '../engine/types';
 import { STAT_KEYS } from '../engine/types';
 
 /** The tables a game action may touch (used for atomic transactions). */
-const tables = () => [db.profile, db.logs, db.settings, db.presets, db.categories];
+const tables = () => [db.profile, db.logs, db.settings, db.presets, db.categories, db.quests, db.questTemplates, db.shop, db.purchases, db.inventory];
 
 export const getFormula = async (): Promise<Formula> => {
   const stored = await getSetting<Partial<Formula>>('formula', {});
@@ -67,8 +69,9 @@ export async function setHp(hp: number): Promise<void> {
  *  v3: built-in presets get HP scaling and progress tracking.
  *  v4: Sports merged into Cardio & Sports (presets, logs and mastery all move together).
  *  v5: "Mind" becomes "Core" (free-form, no mastery) and gains Meditation and Learning tasks.
+ *  v6: adds the hidden "Daily quests missed" penalty used by the quest system.
  */
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 6;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -80,6 +83,7 @@ async function migrateSeed(): Promise<void> {
   }
   if (v < 4) await mergeSportsIntoCardio();
   if (v < 5) await mindToCore();
+  if (v < 6 && !(await db.presets.get('p-quests'))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === 'p-quests')!);
   await setSetting('seedVersion', SEED_VERSION);
 }
 
@@ -178,6 +182,8 @@ export interface LogResult {
   penaltyQuest?: PenaltyQuestHint;
   pr: boolean;
   perfBonus: number;
+  /** Quests (and the daily-set bonus) that this log completed, already paid. */
+  questsCompleted: QuestCompletion[];
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -241,6 +247,7 @@ async function computeEffects(
     level,
     rankRewardMult: rankInfoForLevel(level).rewardMult,
     perfBonus: perf.bonus,
+    xpBoost: await doubleXpBoost(ts),
     masteryBonus: cat?.mastery === false ? 0 : masteryInfo(prog.categoryEffort).bonus,
     weights: presetWeights(preset, cat?.weights ?? {}),
   });
@@ -280,10 +287,12 @@ export async function logActivity(input: LogInput): Promise<LogResult> {
     const [formula, mode] = await Promise.all([getFormula(), getMode()]);
     const { preset, entry } = await computeEffects(input, profile, formula, mode);
     const logId = (await db.logs.add(entry as LogEntry)) as number;
-    const next = applyToProfile(profile, entry, 1);
-    await db.profile.put(next);
+    await db.profile.put(applyToProfile(profile, entry, 1));
+    // Completing a quest pays its reward straight away (so level-ups include quest XP).
+    const questsCompleted = await evaluateQuests(Date.now());
+    const final = (await db.profile.get(1))!;
     const lb = levelFromXp(profile.totalXp).level;
-    const la = levelFromXp(next.totalXp).level;
+    const la = levelFromXp(final.totalXp).level;
     return {
       logId,
       xp: entry.xp,
@@ -299,20 +308,22 @@ export async function logActivity(input: LogInput): Promise<LogResult> {
       penaltyQuest: preset.isPenalty && !entry.paused ? preset.penaltyQuest : undefined,
       pr: !!entry.pr,
       perfBonus: entry.perfBonus ?? 0,
+      questsCompleted,
     };
   });
 }
 
 /** Edits a log by reversing the old effects and applying the new ones. */
-export async function updateLog(id: number, input: LogInput): Promise<void> {
-  await db.transaction('rw', tables(), async () => {
+export async function updateLog(id: number, input: LogInput): Promise<QuestCompletion[]> {
+  return db.transaction('rw', tables(), async () => {
     const old = await db.logs.get(id);
-    if (!old) return;
+    if (!old) return [];
     const reverted = applyToProfile(await ensureProfile(), old, -1);
     const [formula, mode] = await Promise.all([getFormula(), getMode()]);
     const { entry } = await computeEffects(input, reverted, formula, mode, { excludeLogId: id, level: old.levelScale ?? 1 });
     await db.logs.put({ ...(entry as LogEntry), id, demo: old.demo });
     await db.profile.put(applyToProfile(reverted, entry, 1));
+    return evaluateQuests(Date.now());
   });
 }
 

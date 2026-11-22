@@ -25,7 +25,7 @@ export default function Log() {
 
   const taskCats = cats.filter((c) => c.kind === 'task');
   const selectedCat = catId || taskCats[0]?.id || '';
-  const list = tab === 'penalty' ? presets.filter((p) => p.isPenalty) : presets.filter((p) => p.categoryId === selectedCat);
+  const list = tab === 'penalty' ? presets.filter((p) => p.isPenalty && !p.hidden) : presets.filter((p) => p.categoryId === selectedCat);
   const editingPreset = editing ? presets.find((p) => p.id === editing.presetId) : undefined;
 
   return (

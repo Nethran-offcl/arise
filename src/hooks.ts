@@ -5,7 +5,10 @@ import { DEFAULT_FORMULA, type Formula } from './engine/formula';
 import { levelFromXp } from './engine/levels';
 import { rankInfoForLevel } from './engine/ranks';
 import { computeStreak } from './engine/streak';
+import { effectiveTarget, questProgress, type Quest } from './engine/quests';
 import type { PlayMode } from './engine/types';
+import { pausedCountInRange, toQuestLog } from './game/quests';
+import { getTodayFlags, type DayFlags } from './game/schedule';
 
 /** Live-updating reads: components re-render automatically when the database changes. */
 export const useProfile = () => useLiveQuery(() => db.profile.get(1), []);
@@ -38,3 +41,31 @@ export function useProgress() {
   const lv = levelFromXp(profile.totalXp);
   return { profile, ...lv, rank: rankInfoForLevel(lv.level) };
 }
+
+export interface QuestRow {
+  q: Quest;
+  progress: number;
+  /** Target after rest/sick adjustments (only the boss changes). */
+  target: number;
+}
+
+/** Every quest with its live progress, worked out from your logs. */
+export const useQuestBoard = (): QuestRow[] =>
+  useLiveQuery(async () => {
+    const [quests, logs, paused] = await Promise.all([db.quests.toArray(), db.logs.toArray(), getSetting<string[]>('pausedDays', [])]);
+    const pausedSet = new Set(paused);
+    const streak = computeStreak(logs, pausedSet, Date.now());
+    const qlogs = logs.map(toQuestLog);
+    return quests.map((q) => ({
+      q,
+      progress: questProgress(q, qlogs, streak),
+      target: effectiveTarget(q, q.periodStart !== null && q.periodEnd !== null ? pausedCountInRange(pausedSet, q.periodStart, q.periodEnd) : 0),
+    }));
+  }, [], []);
+
+export const useTodayFlags = (): DayFlags => useLiveQuery(() => getTodayFlags(), [], { work: false, college: false });
+export const useTemplates = () => useLiveQuery(() => db.questTemplates.toArray(), [], []);
+export const useShop = () => useLiveQuery(() => db.shop.orderBy('order').toArray(), [], []);
+export const usePurchases = (n = 15) => useLiveQuery(() => db.purchases.orderBy('ts').reverse().limit(n).toArray(), [n], []);
+export const useInventory = () => useLiveQuery(async () => Object.fromEntries((await db.inventory.toArray()).map((r) => [r.id, r.count])) as Record<string, number>, [], {} as Record<string, number>);
+export const useDoubleXp = () => useLiveQuery(() => getSetting<{ from: number; until: number } | null>('doubleXp', null), [], null);

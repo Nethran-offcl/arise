@@ -91,6 +91,8 @@ export interface RewardContext {
   masteryBonus?: number;
   /** Permanent bonus from Shadows for this category, e.g. 0.05 = +5% (Phase 6). */
   shadowBonus?: number;
+  /** Double XP Potion: multiplies XP (not gold). 1 = no potion. */
+  xpBoost?: number;
   weights: Weights;
 }
 
@@ -113,7 +115,7 @@ export function computeReward(preset: Preset, qty: number, intensity: Intensity,
 
   let effortXp = Math.min(f.maxXpPerLog, Math.round(rawXp * base * f.xpMult * (1 + perf)));
   if (rawXp > 0 && effortXp < 1) effortXp = 1;
-  const xp = Math.round(effortXp * scale * ctx.rankRewardMult * (1 + mastery) * (1 + shadow));
+  const xp = Math.round(effortXp * scale * ctx.rankRewardMult * (1 + mastery) * (1 + shadow) * (ctx.xpBoost ?? 1));
   const gold = Math.min(f.maxGoldPerLog, Math.round(rawGold * base * ctx.rankRewardMult * (1 + shadow) * f.goldMult));
 
   const statGains: Partial<Stats> = {};

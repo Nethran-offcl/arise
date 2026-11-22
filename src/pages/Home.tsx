@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Bar, btnPrimary, Segmented } from '../components/ui';
 import { SystemWindow } from '../components/SystemWindow';
+import { TodayQuests } from '../components/TodayQuests';
 import { rankInfoForLevel, RANKS } from '../engine/ranks';
 import { setHp, setMode } from '../game/actions';
 import { dayKey, daysBetween } from '../engine/streak';
@@ -77,7 +78,7 @@ export default function Home() {
 
       <SystemWindow title="Today">
         <Link to="/log" className={`${btnPrimary} flex items-center justify-center`}>＋ Log a task</Link>
-        <p className="mt-3 text-sm text-muted">Daily quests unlock in Phase 3. For now, every task you log earns XP.</p>
+        <TodayQuests />
       </SystemWindow>
 
       <SystemWindow title="Energy check-in">

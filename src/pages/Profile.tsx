@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ShopPanel } from '../components/ShopPanel';
 import { SystemWindow } from '../components/SystemWindow';
-import { btnGhost, btnPrimary, Field, inputCls } from '../components/ui';
+import { btnGhost, btnPrimary, Field, inputCls, Segmented } from '../components/ui';
 import { renamePlayer } from '../game/actions';
 import { useProgress } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
@@ -19,6 +20,7 @@ export default function Profile() {
   const say = useCelebrate((s) => s.say);
   const [name, setName] = useState('');
   const [title, setTitle] = useState('');
+  const [tab, setTab] = useState<'player' | 'shop'>('player');
 
   useEffect(() => {
     if (p) { setName(p.profile.name); setTitle(p.profile.title); }
@@ -28,6 +30,8 @@ export default function Profile() {
 
   return (
     <div className="space-y-4">
+      <Segmented label="Section" value={tab} onChange={setTab} options={[{ id: 'player', label: 'Profile' }, { id: 'shop', label: '🪙 Shop & bag' }]} />
+      {tab === 'shop' ? <ShopPanel /> : <>
       <SystemWindow title="Player">
         <div className="space-y-3">
           <Field label="Name"><input className={inputCls} value={name} maxLength={24} onChange={(e) => setName(e.target.value)} /></Field>
@@ -52,8 +56,8 @@ export default function Profile() {
           <Link to="/presets" className={`${btnGhost} flex items-center`}>Manage tasks &amp; presets</Link>
           <Link to="/settings" className={`${btnGhost} flex items-center`}>Settings, formulas &amp; demo data</Link>
         </div>
-        <p className="mt-3 text-sm text-muted">The Shop opens in Phase 3.</p>
       </SystemWindow>
+      </>}
     </div>
   );
 }

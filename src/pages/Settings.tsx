@@ -9,6 +9,8 @@ import { DEFAULT_FORMULA, describeFormula, sanitizeFormula, type Difficulty, typ
 import { DEFAULT_DAILY_RECOVERY, DEFAULT_DAY_START_HOUR, resetAllData } from '../game/actions';
 import { seedDemo, wipeDemo } from '../game/demo';
 import { downloadBackup, restoreBackup, shareBackup } from '../game/backup';
+import { DAY_NAMES, getSchedule, setSchedule, type DayFlags } from '../game/schedule';
+import { dailyTick } from '../game/startup';
 import { useFormula } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 
@@ -18,6 +20,7 @@ export default function Settings() {
   const [busy, setBusy] = useState(false);
   const dayStart = useLiveQuery(() => getSetting<number>('dayStartHour', DEFAULT_DAY_START_HOUR), [], DEFAULT_DAY_START_HOUR);
   const lastBackup = useLiveQuery(() => getSetting<number | null>('lastBackup', null), [], null);
+  const schedule = useLiveQuery(getSchedule, [], undefined);
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [usedMb, setUsedMb] = useState<string>('');
   useEffect(() => {
@@ -43,6 +46,28 @@ export default function Settings() {
         <Segmented<Difficulty> label="Difficulty" value={formula.difficulty} onChange={(d) => save({ ...formula, difficulty: d })}
           options={[{ id: 'easy', label: 'Easy' }, { id: 'normal', label: 'Normal' }, { id: 'hard', label: 'Hard' }]} />
         <p className="mt-2 text-xs text-muted">Easy: gentler penalties, slightly lower rewards. Hard: bigger rewards, firmer penalties.</p>
+      </SystemWindow>
+
+      <SystemWindow title="Weekly schedule">
+        <p className="mb-2 text-sm text-muted">Tell the System which days you work or have college, so quests fit your week. You can still change any single day on the Quests tab.</p>
+        {schedule && (
+          <table className="w-full text-sm">
+            <thead><tr className="text-left text-xs text-muted"><th className="py-1">Day</th><th>💼 Work</th><th>🎓 College</th></tr></thead>
+            <tbody>
+              {[1, 2, 3, 4, 5, 6, 0].map((d) => (
+                <tr key={d} className="border-t border-line">
+                  <td className="py-1">{DAY_NAMES[d]}</td>
+                  {(['work', 'college'] as (keyof DayFlags)[]).map((k) => (
+                    <td key={k}>
+                      <input type="checkbox" className="h-6 w-6" aria-label={`${DAY_NAMES[d]} ${k}`} checked={schedule[d][k]}
+                        onChange={(e) => void setSchedule({ ...schedule, [d]: { ...schedule[d], [k]: e.target.checked } })} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </SystemWindow>
 
       <SystemWindow title="Overnight recovery">
@@ -128,6 +153,7 @@ export default function Settings() {
         <button className={`${btnGhost} w-full text-red-300`} onClick={async () => {
           if (confirm('Erase ALL data (profile, logs, presets, settings)? This cannot be undone.')) {
             await resetAllData();
+            await dailyTick();
             say('[SYSTEM] All data reset.');
           }
         }}>Reset all data</button>

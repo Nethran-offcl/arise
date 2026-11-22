@@ -7,6 +7,7 @@ import { setSetting } from '../db/db';
 import { seedDemo, wipeDemo } from './demo';
 import { buildBackup, parseBackup, restoreBackup } from './backup';
 import { mergeSportsIntoCardio } from './actions';
+import { dailyTick } from './startup';
 
 const base = { qty: 3, intensity: 'normal' as const, ts: Date.now() };
 
@@ -296,6 +297,7 @@ describe('Core category', () => {
 
 describe('backup and restore', () => {
   it('round-trips everything through a plain JSON file', async () => {
+    await dailyTick(); // like the real app: quests already exist
     await logActivity({ ...base, presetId: 'run', qty: 5, perf: 7 });
     await logActivity({ ...base, presetId: 'study', qty: 2 });
     await setSetting('theme', 'monarch');
