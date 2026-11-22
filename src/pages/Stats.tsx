@@ -47,6 +47,8 @@ export default function Stats() {
         </Suspense>
       </SystemWindow>
 
+      <Link to="/statguide" className="block text-sm text-accent">What feeds each stat? →</Link>
+
       <SystemWindow title="Category mastery">
         <ul className="divide-y divide-line">
           {masteryRows.map((c) => {

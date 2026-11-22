@@ -29,12 +29,12 @@ interface P {
   hpu?: number; // HP per unit
   cap?: number; // reward cap (max amount that pays)
   perf?: PerfSpec;
+  lifts?: boolean;
   w?: Weights;
 }
 
 const PACE: PerfSpec = { kind: 'pace', label: 'Total time (minutes)', unit: 'min/km' };
 const REPS: PerfSpec = { kind: 'higher', label: 'Most reps in one set', unit: 'reps' };
-const LIFT: PerfSpec = { kind: 'higher', label: 'Heaviest weight lifted (kg)', unit: 'kg' };
 const PLAY: PerfSpec = { kind: 'higher', label: 'How well did you play? (1-10, honest rating)', unit: '/10' };
 
 const SPORT_SPLIT: Weights = { AGI: 0.5, STR: 0.3, VIT: 0.2 };
@@ -54,6 +54,7 @@ const task = (p: P): Preset => ({
   hpPerUnit: p.hpu ?? 0,
   rewardCap: p.cap,
   perf: p.perf,
+  trackLifts: p.lifts,
   weights: p.w,
   isPenalty: false,
   breaksStreak: false,
@@ -91,7 +92,7 @@ export const DEFAULT_PRESETS: Preset[] = [
   task({ id: 'run', c: 'cardio', n: 'Run', u: 'km', q: 3, b: 10, x: 30, g: 3, gu: 8, hpu: -2, perf: PACE }),
   task({ id: 'walk', c: 'cardio', n: 'Walk', u: 'minutes', q: 30, x: 0.8, gu: 0.3, hpu: -0.03 }),
   // Strength (STR)
-  task({ id: 'gym', c: 'strength', n: 'Gym session', u: 'minutes', q: 45, b: 10, x: 0.9, g: 5, gu: 0.3, hpu: -0.2, perf: LIFT }),
+  task({ id: 'gym', c: 'strength', n: 'Gym session', u: 'minutes', q: 45, b: 10, x: 0.9, g: 5, gu: 0.3, hpu: -0.2, lifts: true }),
   task({ id: 'pushups', c: 'strength', n: 'Push-ups', u: 'count', q: 20, x: 0.6, gu: 0.2, hpu: -0.03, perf: REPS }),
   task({ id: 'pullups', c: 'strength', n: 'Pull-ups', u: 'count', q: 8, x: 1.5, gu: 0.5, hpu: -0.1, perf: REPS }),
   task({ id: 'plank', c: 'strength', n: 'Plank / core hold', u: 'minutes', q: 2, x: 5, gu: 1.5, hpu: -0.3 }),

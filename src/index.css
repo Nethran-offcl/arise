@@ -211,6 +211,10 @@ h1, h2, .font-display { font-family: var(--font-display); }
 [data-theme="minimal"] .sys-title { text-shadow: none; }
 [data-theme="minimal"] .glow-text { text-shadow: none; }
 
+/* Horizontally scrolling chip rows: swipe works, the bar stays hidden */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 button { min-height: 44px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {

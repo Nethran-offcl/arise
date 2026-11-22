@@ -79,7 +79,7 @@ export default function Profile() {
       <SystemWindow title="Tools">
         <div className="grid grid-cols-2 gap-2">
           {[
-            ['/runs', '🏃 Run tracker'], ['/sleep', '😴 Sleep tracker'], ['/heatmap', '🔥 Calendar'], ['/shadows', '👤 Shadow Army'],
+            ['/runs', '🏃 Run tracker'], ['/lifts', '🏋️ Strength tracker'], ['/sleep', '😴 Sleep tracker'], ['/heatmap', '🔥 Calendar'], ['/shadows', '👤 Shadow Army'],
             ['/trophies', '🏆 Trophies & titles'], ['/focus', '🎯 Focus timer'], ['/journal', '📓 Journal'], ['/review', '📊 Weekly review'],
           ].map(([to, label]) => <Link key={to} to={to} className={`${btnGhost} flex items-center`}>{label}</Link>)}
         </div>

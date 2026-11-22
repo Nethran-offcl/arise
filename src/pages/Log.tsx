@@ -41,7 +41,7 @@ export default function Log() {
         )}
 
         {tab === 'task' && (
-          <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Categories">
+          <div className="no-scrollbar -mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Categories">
             {taskCats.map((c) => (
               <button key={c.id} role="tab" aria-selected={selectedCat === c.id} onClick={() => setCatId(c.id)}
                 className={`shrink-0 rounded-full border px-4 text-sm ${selectedCat === c.id ? 'border-accent text-accent' : 'border-line text-muted'}`}>

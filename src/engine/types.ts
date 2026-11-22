@@ -64,6 +64,8 @@ export interface Preset {
   rewardCap?: number;
   /** Extra HP change per unit (e.g. -0.2 per minute of gym). Optional for older custom presets. */
   hpPerUnit?: number;
+  /** Gym-style tasks: log exercises with weight and reps, each with its own progress history. */
+  trackLifts?: boolean;
   /** What to track to reward improvement (pace, weight lifted, rating...). */
   perf?: PerfSpec;
   /** Optional starting value for perf (otherwise your first 3 results are used). */

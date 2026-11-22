@@ -2,14 +2,17 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useMemo, useState } from 'react';
 import type { LogEntry } from '../db/db';
 import { computePenalty, computeReward, maxQtyFor, presetWeights } from '../engine/formula';
+import { liftsBonus, type Lift } from '../engine/lifts';
 import { levelScale } from '../engine/levels';
 import { masteryInfo, performanceBonus } from '../engine/progress';
 import { rankInfoForLevel } from '../engine/ranks';
 import { UNIT_SHORT, type Intensity, type Preset } from '../engine/types';
 import { deleteLog, logActivity, updateLog } from '../game/actions';
+import { loadLiftHistory } from '../game/lifts';
 import { loadProgressInputs } from '../game/progress';
 import { useCategories, useFormula, useMode, useProgress } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
+import { LiftsEditor } from './LiftsEditor';
 import { btnGhost, btnPrimary, Field, inputCls, Segmented } from './ui';
 
 /** "datetime-local" wants local time in YYYY-MM-DDTHH:mm. */
@@ -45,6 +48,11 @@ export function LogForm({ preset, existing, onDone }: Props) {
   const initialPerf = existing?.perf ? String(preset.perf?.kind === 'pace' ? Math.round(existing.perf * existing.qty * 10) / 10 : existing.perf) : '';
   const [perfInput, setPerfInput] = useState(initialPerf);
   const whenTs = new Date(when).getTime() || Date.now();
+  // Gym sessions: the exercises done, each compared with its own history
+  const [lifts, setLifts] = useState<Lift[]>(existing?.lifts ?? []);
+  const liftIds = lifts.map((l) => l.exerciseId);
+  const liftHist = useLiveQuery(() => loadLiftHistory(liftIds, whenTs, existing?.id), [liftIds.join(','), whenTs, existing?.id], {} as Record<string, number[]>);
+  const liftRes = preset.trackLifts && lifts.length ? liftsBonus(lifts, liftHist ?? {}) : null;
   const prog = useLiveQuery(() => loadProgressInputs(preset.id, preset.categoryId, existing?.id, whenTs), [preset.id, preset.categoryId, existing?.id, whenTs]);
 
   const maxQ = maxQtyFor(preset.unit);
@@ -67,9 +75,11 @@ export function LogForm({ preset, existing, onDone }: Props) {
       return { main: e.paused ? 'Rest/Sick mode: this penalty is paused (no effect).' : `-${e.xpLoss.toLocaleString()} XP · -${e.hpLoss} HP${e.breaksStreak ? ' · breaks streak today' : ''}`, detail: '' };
     }
     const cat = cats.find((c) => c.id === preset.categoryId);
-    const perf = preset.perf && perfValue
-      ? performanceBonus(preset.perf.kind, perfValue, prog?.perfValues ?? [], preset.perfStart)
-      : { bonus: 0, pr: false, suspicious: false };
+    const perf = liftRes
+      ? liftRes
+      : preset.perf && perfValue
+        ? performanceBonus(preset.perf.kind, perfValue, prog?.perfValues ?? [], preset.perfStart)
+        : { bonus: 0, pr: false, suspicious: false };
     const mastery = cat?.mastery === false ? masteryInfo(0) : masteryInfo(prog?.categoryEffort ?? 0);
     const r = computeReward(preset, q, intensity, {
       formula,
@@ -87,11 +97,11 @@ export function LogForm({ preset, existing, onDone }: Props) {
       main: `${perf.pr ? '🏆 NEW RECORD · ' : ''}+${r.xp.toLocaleString()} XP · +${r.gold} gold${stats ? ' · ' + stats : ''}${r.hp ? ` · HP ${r.hp > 0 ? '+' : ''}${r.hp}` : ''}`,
       detail: `${r.effortXp} for your effort · ${parts.join(' · ')}${perf.suspicious ? ' · ⚠ That result looks too good to be true, so no progress bonus. Check for a typo.' : ''}`,
     };
-  }, [preset, q, intensity, formula, mode, cats, progress?.level, perfValue, prog]);
+  }, [preset, q, intensity, formula, mode, cats, progress?.level, perfValue, prog, liftRes]);
 
   async function save() {
     setBusy(true);
-    const input = { presetId: preset.id, qty: q, intensity, ts: new Date(when).getTime() || Date.now(), note: note.trim() || undefined, perf: perfValue };
+    const input = { presetId: preset.id, qty: q, intensity, ts: new Date(when).getTime() || Date.now(), note: note.trim() || undefined, perf: perfValue, lifts: preset.trackLifts ? lifts : undefined };
     try {
       if (existing?.id) {
         const done = await updateLog(existing.id, input);
@@ -138,6 +148,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
         <Segmented label="Intensity" value={intensity} onChange={setIntensity}
           options={[{ id: 'light', label: 'Light' }, { id: 'normal', label: 'Normal' }, { id: 'hard', label: 'Hard' }]} />
       )}
+      {preset.trackLifts && <LiftsEditor value={lifts} onChange={setLifts} rows={liftRes?.rows} />}
       {preset.perf && (
         <Field label={`${preset.perf.label} (optional, rewards improvement)`}>
           <input className={inputCls} type="number" inputMode="decimal" min={0} step="any" value={perfInput} onChange={(e) => setPerfInput(e.target.value)} />

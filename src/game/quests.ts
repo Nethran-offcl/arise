@@ -20,7 +20,7 @@ export const toQuestLog = (l: LogEntry): QuestLog => ({
 });
 
 /** Every table a quest operation may touch (for atomic transactions). */
-export const questTables = () => [db.quests, db.questTemplates, db.profile, db.logs, db.settings, db.presets, db.categories, db.inventory, db.journal, db.shadows];
+export const questTables = () => [db.quests, db.questTemplates, db.profile, db.logs, db.settings, db.presets, db.categories, db.inventory, db.journal, db.shadows, db.exercises];
 
 /** How many of the days in [start, end) were Rest/Sick/protected days. */
 export function pausedCountInRange(paused: Set<string>, start: number, end: number): number {

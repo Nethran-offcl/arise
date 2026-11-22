@@ -51,8 +51,8 @@ You never have to log everything. Even one small task keeps your streak alive.
 - **Home**: your status (level, XP, HP, gold, streak), the System's insights, today's habits, quick recovery mode, recent logs.
 - **Log**: everything you can log, grouped by category. **＋ Custom task** and **＋ Category** let you add your own. Tap a recent log to edit, backdate or delete it.
 - **Quests**: your day type, daily quests, the weekly boss raid, weekly quests, emergency quests, your own quests, milestones.
-- **Stats**: radar chart of your six stats, category mastery, spendable stat points, and the System analysis (7, 14 or 30 days).
-- **Profile**: your name, colour theme and **style** (Solo Leveling HUD or the calmer Classic look), **Shop & bag**, and the **Tools**: Run tracker, Sleep tracker, Calendar heatmap, Shadow Army, Trophies & titles, Focus timer, Journal, Weekly review, Manage tasks, Settings.
+- **Stats**: radar chart of your six stats, a guide to which activities feed each stat, category mastery, spendable stat points, and the System analysis (7, 14 or 30 days).
+- **Profile**: your name, colour theme and **style** (Solo Leveling HUD or the calmer Classic look), **Shop & bag**, and the **Tools**: Run tracker, Strength tracker, Sleep tracker, Calendar heatmap, Shadow Army, Trophies & titles, Focus timer, Journal, Weekly review, Manage tasks, Settings.
 
 ---
 
@@ -61,6 +61,8 @@ You never have to log everything. Even one small task keeps your streak alive.
 **Levels never slow down.** XP needed for a level is `600 × level`, and everything you earn is multiplied by your level, so the same effort moves you the same distance forever. There is no practical level cap. Ranks: E → D (level 10) → C (25) → B (45) → A (70) → S (100), each paying slightly more.
 
 **Rewards.** `XP = (base + per-unit × amount) × intensity × difficulty × level × rank × mastery`. Every formula is visible and editable in **Settings → XP formula**. Gold is not level-scaled, so shop prices stay meaningful.
+
+**Lifting is tracked per exercise.** In a Gym session, tap **＋ Add exercise**, pick a muscle and an exercise (or type a new name once and it is saved for next time), then enter your max weight and, optionally, your reps. Each exercise is compared with its own history using an estimated one-rep max, so lifting heavier or doing more reps both count as progress. See all records in **Profile → Strength tracker**.
 
 **Getting better pays more.** Run faster, lift heavier, do more reps in a set, play better than your starting level and you earn up to +75% XP. A new personal record adds +15%. A slower or lighter day never costs XP. A result that looks too good to be true (more than twice your baseline) is treated as a typo and not rewarded.
 

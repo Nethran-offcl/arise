@@ -17,6 +17,8 @@ import { useUI } from './store/ui';
 const Focus = lazy(() => import('./pages/Focus'));
 const Heatmap = lazy(() => import('./pages/Heatmap'));
 const Journal = lazy(() => import('./pages/Journal'));
+const Lifts = lazy(() => import('./pages/Lifts'));
+const StatGuide = lazy(() => import('./pages/StatGuide'));
 const Presets = lazy(() => import('./pages/Presets'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Quests = lazy(() => import('./pages/Quests'));
@@ -50,6 +52,8 @@ function AnimatedRoutes() {
         <Route path="/trophies" element={<Trophies />} />
         <Route path="/focus" element={<Focus />} />
         <Route path="/journal" element={<Journal />} />
+        <Route path="/lifts" element={<Lifts />} />
+        <Route path="/statguide" element={<StatGuide />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
       </Suspense>

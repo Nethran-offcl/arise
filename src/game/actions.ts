@@ -4,7 +4,9 @@ import { computePenalty, computeReward, DEFAULT_FORMULA, maxQtyFor, presetWeight
 import { applyXpDelta, freeStatPoints, levelFromXp, levelScale } from '../engine/levels';
 import { masteryInfo, performanceBonus } from '../engine/progress';
 import { loadProgressInputs } from './progress';
+import { liftsBonus, sanitizeLifts, type Lift } from '../engine/lifts';
 import { shadowBonusFor } from '../engine/shadows';
+import { ensureExerciseSeed, loadLiftHistory } from './lifts';
 import { evaluateQuests, type QuestCompletion } from './quests';
 import { checkShadow, type ExtractedShadow } from './shadows';
 import { checkTrophies, type UnlockedTrophy } from './trophies';
@@ -15,7 +17,7 @@ import type { Intensity, PenaltyQuestHint, PlayMode, StatKey } from '../engine/t
 import { STAT_KEYS } from '../engine/types';
 
 /** The tables a game action may touch (used for atomic transactions). */
-const tables = () => [db.profile, db.logs, db.settings, db.presets, db.categories, db.quests, db.questTemplates, db.shop, db.purchases, db.inventory, db.shadows, db.journal];
+const tables = () => [db.profile, db.logs, db.settings, db.presets, db.categories, db.quests, db.questTemplates, db.shop, db.purchases, db.inventory, db.shadows, db.journal, db.exercises];
 
 export const getFormula = async (): Promise<Formula> => {
   const stored = await getSetting<Partial<Formula>>('formula', {});
@@ -34,6 +36,7 @@ export async function ensureSeed(): Promise<void> {
   if ((await db.categories.count()) === 0) await db.categories.bulkPut(DEFAULT_CATEGORIES);
   if ((await db.presets.count()) === 0) await db.presets.bulkPut(DEFAULT_PRESETS);
   await migrateSeed();
+  await ensureExerciseSeed();
   await expireRestMode();
   await touchPausedDay();
   await applyDailyRecovery();
@@ -82,8 +85,9 @@ export async function setHp(hp: number): Promise<void> {
  *  v12: more exercises: push-ups, pull-ups, plank, plyometrics, incline walking, cycling, jump rope, swimming, stretching, yoga.
  *  v13: Trekking / hiking (builds Agility, Strength and Vitality).
  *  v14: cardio builds Vitality as well as Agility (70/30); sports are 50% Agility, 30% Strength, 20% Vitality.
+ *  v15: Gym sessions track exercises (weight and reps each) instead of one shared weight.
  */
-export const SEED_VERSION = 14;
+export const SEED_VERSION = 15;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -100,6 +104,7 @@ async function migrateSeed(): Promise<void> {
   if (v < 10) await mindStats();
   if (v < 11) await coreEven();
   if (v < 14) await cardioVitality();
+  if (v < 15 && (await db.presets.get('gym'))?.builtin) await db.presets.update('gym', { trackLifts: true, perf: undefined });
   if (v < 13 && !(await db.presets.get('trekking'))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === 'trekking')!);
   if (v < 12) {
     for (const id of ['pushups', 'pullups', 'plank', 'plyo', 'incline-walk', 'cycling', 'jump-rope', 'swimming', 'stretch', 'yoga']) {
@@ -267,6 +272,8 @@ export interface LogInput {
   demo?: boolean;
   /** Result for improvement tracking (e.g. pace = minutes / km, or kg lifted). */
   perf?: number;
+  /** Exercises for a gym session (weight and reps each). */
+  lifts?: Lift[];
   /** Bedtime / wake time for sleep entries. */
   sleep?: { bed: number; wake: number };
   /** Penalty quests refund at most the XP the penalty took (never a net gain). */
@@ -348,9 +355,13 @@ async function computeEffects(
   }
 
   const prog = await loadProgressInputs(preset.id, preset.categoryId, opts.excludeLogId, ts);
-  const perf = preset.perf && input.perf && input.perf > 0
-    ? performanceBonus(preset.perf.kind, input.perf, prog.perfValues, preset.perfStart)
-    : { bonus: 0, pr: false };
+  // Gym sessions: each exercise is compared with its own history. Other tasks use their single result (pace, reps...).
+  const lifts = preset.trackLifts ? sanitizeLifts(input.lifts ?? []) : [];
+  const perf = lifts.length
+    ? liftsBonus(lifts, await loadLiftHistory(lifts.map((l) => l.exerciseId), ts, opts.excludeLogId))
+    : preset.perf && input.perf && input.perf > 0
+      ? performanceBonus(preset.perf.kind, input.perf, prog.perfValues, preset.perfStart)
+      : { bonus: 0, pr: false };
   const reward = computeReward(preset, qty, input.intensity, {
     formula,
     level,
@@ -373,6 +384,7 @@ async function computeEffects(
     pr: perf.pr,
     effortXp: reward.effortXp,
     sleep: input.sleep,
+    lifts: lifts.length ? lifts : undefined,
     masteryBonus: reward.masteryBonus,
   };
   return { preset, entry };

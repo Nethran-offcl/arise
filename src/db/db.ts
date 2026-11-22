@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
+import type { Lift, MuscleId } from '../engine/lifts';
 import type { Quest, QuestTemplate } from '../engine/quests';
 import type { InventoryRow, Purchase, ShopItem } from '../engine/shop';
 import { emptyStats, type Category, type Intensity, type Preset, type Stats } from '../engine/types';
@@ -38,6 +39,8 @@ export interface LogEntry {
   /** True when Rest/Sick mode switched this penalty off. */
   paused?: boolean;
   /** Result you entered for improvement tracking (pace in min/km, weight in kg, rating...). */
+  /** Exercises done in a gym session, each with its weight and reps. */
+  lifts?: Lift[];
   /** Bedtime and wake time (timestamps) for sleep entries. */
   sleep?: { bed: number; wake: number };
   perf?: number;
@@ -50,6 +53,14 @@ export interface LogEntry {
   masteryBonus?: number;
   note?: string;
   demo?: boolean;
+}
+
+/** A saved exercise you can pick again (bench press, squat, ...). */
+export interface Exercise {
+  id: string;
+  name: string;
+  muscle: MuscleId;
+  createdAt: number;
 }
 
 /** An extracted habit: gives a small permanent XP bonus in its category. */
@@ -88,6 +99,7 @@ export class AriseDB extends Dexie {
   inventory!: EntityTable<InventoryRow, 'id'>;
   shadows!: EntityTable<Shadow, 'id'>;
   journal!: EntityTable<JournalEntry, 'id'>;
+  exercises!: EntityTable<Exercise, 'id'>;
 
   constructor() {
     super('arise');
@@ -146,6 +158,22 @@ export class AriseDB extends Dexie {
       inventory: 'id',
       shadows: 'id, categoryId',
       journal: 'id, ts',
+    });
+    // v5: saved exercises for the strength tracker.
+    this.version(5).stores({
+      profile: 'id',
+      logs: '++id, ts, categoryId, presetId, isPenalty',
+      settings: 'key',
+      categories: 'id, order',
+      presets: 'id, categoryId',
+      quests: '++id, &key, kind, status, periodStart',
+      questTemplates: '++id',
+      shop: 'id, order',
+      purchases: '++id, ts',
+      inventory: 'id',
+      shadows: 'id, categoryId',
+      journal: 'id, ts',
+      exercises: 'id, muscle',
     });
   }
 }
