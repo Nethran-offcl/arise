@@ -33,6 +33,8 @@ export interface Category {
   kind: 'task' | 'penalty';
   /** When false the category has no mastery bonus (used for the free-form Core category). Default true. */
   mastery?: boolean;
+  /** Categories with the same group share ONE mastery pool (e.g. Study + Core = "mind"). */
+  masteryGroup?: string;
   order: number;
 }
 

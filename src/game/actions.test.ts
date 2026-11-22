@@ -248,16 +248,16 @@ describe('Cardio and Sports are one category', () => {
 });
 
 describe('Core category', () => {
-  it('fresh installs have Core (no Mind) with free-form tasks and no mastery', async () => {
+  it('fresh installs have Core (no Mind) with free-form tasks, sharing mastery with Study', async () => {
     expect(await db.categories.get('mind')).toBeUndefined();
     const core = (await db.categories.get('core'))!;
-    expect(core.mastery).toBe(false);
+    expect(core.masteryGroup).toBe('mind');
     for (const id of ['meditation', 'journal', 'reading', 'learn', 'planning', 'review']) expect((await db.presets.get(id))!.categoryId).toBe('core');
   });
-  it('Core tasks never get a mastery bonus, however much you log', async () => {
+  it('Core tasks earn the shared mind mastery like any other category', async () => {
     for (let i = 0; i < 12; i++) await logActivity({ ...base, ts: base.ts - 100_000 + i * 1000, presetId: 'meditation', qty: 30 });
     const r = await logActivity({ ...base, presetId: 'meditation', qty: 30 });
-    expect(r.xp).toBe(36); // 1.2 x 30, always
+    expect(r.xp).toBeGreaterThan(36); // 1.2 x 30 = 36 before any mastery
   });
   it('other categories still earn mastery', async () => {
     for (let i = 0; i < 3; i++) await logActivity({ ...base, ts: base.ts - 100_000 + i * 1000, presetId: 'study', qty: 2 });
@@ -284,7 +284,7 @@ describe('Core category', () => {
     await setSetting('seedVersion', 4);
     await ensureSeed();
     expect(await db.categories.get('mind')).toBeUndefined();
-    expect((await db.categories.get('core'))!.mastery).toBe(false);
+    expect((await db.categories.get('core'))!.masteryGroup).toBe('mind');
     expect((await db.presets.get('journal'))!.categoryId).toBe('core');
     expect((await db.presets.get('custom-yoga'))!.categoryId).toBe('core');
     expect((await db.presets.get('reading'))!.categoryId).toBe('core');

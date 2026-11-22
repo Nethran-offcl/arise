@@ -76,8 +76,9 @@ export async function setHp(hp: number): Promise<void> {
  *  v7: water is measured in litres (2 L a day) and sleep gets a reward cap.
  *  v8: adds the Focus session task and the Okay meal task.
  *  v9: repairs open water quests created before water moved to litres (they would ask for 6 L).
+ *  v10: Study and Core share one mind mastery; Study feeds Sense; Work feeds Intelligence; new skills & learning tasks.
  */
-export const SEED_VERSION = 9;
+export const SEED_VERSION = 10;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -91,6 +92,7 @@ async function migrateSeed(): Promise<void> {
   if (v < 5) await mindToCore();
   if (v < 7) await waterAndSleep();
   if (v < 9) await fixOldWaterQuests();
+  if (v < 10) await mindStats();
   if (v < 8) {
     for (const id of ['focus', 'meal-okay']) if (!(await db.presets.get(id))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === id)!);
   }
@@ -131,6 +133,29 @@ export async function waterAndSleep(): Promise<void> {
     }
     const sleep = await db.presets.get('sleep-hours');
     if (sleep?.builtin) await db.presets.update('sleep-hours', { rewardCap: 9, name: 'Sleep' });
+  });
+}
+
+const sameWeights = (a: Record<string, number | undefined>, b: Record<string, number | undefined>) => {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((k) => Math.abs((a[k] ?? 0) - (b[k] ?? 0)) < 1e-9);
+};
+
+/**
+ * v10: Study and Core share one mastery pool, Study also feeds Sense, Work feeds Intelligence, and the new
+ * skills & learning tasks are added. Stat splits you edited yourself are left alone.
+ */
+export async function mindStats(): Promise<void> {
+  await db.transaction('rw', [db.categories, db.presets], async () => {
+    const study = await db.categories.get('study');
+    if (study) await db.categories.update('study', { masteryGroup: 'mind', ...(sameWeights(study.weights, { INT: 1 }) ? { weights: { INT: 0.7, SEN: 0.3 } } : {}) });
+    const core = await db.categories.get('core');
+    if (core) await db.categories.update('core', { masteryGroup: 'mind', mastery: true });
+    const work = await db.categories.get('work');
+    if (work && sameWeights(work.weights, { DIS: 0.8, INT: 0.2 })) await db.categories.update('work', { weights: { INT: 0.5, DIS: 0.5 } });
+    for (const id of ['course', 'skill-practice', 'create', 'work-learning']) {
+      if (!(await db.presets.get(id))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === id)!);
+    }
   });
 }
 

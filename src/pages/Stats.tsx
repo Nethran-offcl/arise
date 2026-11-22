@@ -8,7 +8,7 @@ import { freeStatPoints } from '../engine/levels';
 import { STAT_KEYS, STAT_LABEL } from '../engine/types';
 import { spendStatPoint } from '../game/actions';
 import { db } from '../db/db';
-import { masteryInfo } from '../engine/progress';
+import { MASTERY_GROUP_NAMES, masteryInfo } from '../engine/progress';
 import { useCategories, useProgress, useSnapshot } from '../hooks';
 
 const StatsChart = lazy(() => import('./StatsChart'));
@@ -26,6 +26,18 @@ export default function Stats() {
   }, [], {} as Record<string, number>);
   if (!p) return null;
   const free = freeStatPoints(p.level, p.profile.spentPoints);
+  // One mastery row per pool (Study + Core share "Mind"); every other category has its own
+  const masteryRows = (() => {
+    const groups = new Map<string, { id: string; label: string; effort: number }>();
+    for (const c of cats) {
+      if (c.kind !== 'task' || c.mastery === false) continue;
+      const key = c.masteryGroup ?? c.id;
+      const g = groups.get(key) ?? { id: key, label: c.masteryGroup ? MASTERY_GROUP_NAMES[c.masteryGroup] ?? c.name : `${c.icon} ${c.name}`, effort: 0 };
+      g.effort += effort[c.id] ?? 0;
+      groups.set(key, g);
+    }
+    return [...groups.values()];
+  })();
 
   return (
     <div className="space-y-4">
@@ -37,18 +49,18 @@ export default function Stats() {
 
       <SystemWindow title="Category mastery">
         <ul className="divide-y divide-line">
-          {cats.filter((c) => c.kind === 'task' && c.mastery !== false).map((c) => {
-            const m = masteryInfo(effort[c.id] ?? 0);
+          {masteryRows.map((c) => {
+            const m = masteryInfo(c.effort);
             return (
               <li key={c.id} className="flex items-center justify-between py-2 text-sm">
-                <span>{c.icon} {c.name}</span>
+                <span>{c.label}</span>
                 <span className="text-right"><span className="font-semibold">Mastery {m.level}</span> <span className="text-accent">+{Math.round(m.bonus * 100)}% XP</span>
                   <span className="block text-xs text-muted">{Math.round(m.effort)} / {m.nextAt} effort to next</span></span>
               </li>
             );
           })}
         </ul>
-        <p className="mt-2 text-xs text-muted">The more effort you put into a category, the more every task in it pays. Core has no mastery: it is for anything you want credit for.</p>
+        <p className="mt-2 text-xs text-muted">The more effort you put into a category, the more every task in it pays. Study and Core share one mastery, so reading, learning and reflecting boost your study XP too.</p>
       </SystemWindow>
 
       <SystemWindow title={`Stat points: ${free}`}>

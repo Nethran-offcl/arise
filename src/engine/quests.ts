@@ -232,6 +232,12 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
   if (A?.noHard) add('walk', 30 * Math.min(phys, 0.65)); // recovery / final-stretch days: gentle movement only
   else if (!(ctx.runsLast7 < 3 && !ctx.ranYesterday && (A ? A.runTarget !== null : true) && add('run', A?.runTarget ?? 3, !A))) add('walk', 30 * phys);
   add('water', 2, false); // every day: 2 litres, entered in one go if you like
+  // A daily "mind" quest keeps Intelligence and Sense growing even when you are not studying (reading only on recovery days)
+  const mindOptions = (A?.gentle ? ['reading'] : ['reading', 'skill-practice', 'course', 'learn', 'create']).filter((id) => byId.has(id) && !taken.has(id));
+  if (mindOptions.length) {
+    const pick = mindOptions[Math.floor(rng() * mindOptions.length)];
+    add(pick, { reading: 20, 'skill-practice': 20, course: 20, learn: 1, create: 20 }[pick] ?? 20, false);
+  }
   if (A?.study) add('study', A.study.base, false); // exam / deadline focus, even on a non-college day
   if (ctx.flags.work && !A?.gentle) add('office', 3);
   if (ctx.flags.college && !A?.gentle) add('study', 1);

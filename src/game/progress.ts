@@ -17,7 +17,11 @@ export async function loadProgressInputs(presetId: string, categoryId: string, e
     .filter((l) => l.id !== excludeLogId && l.perf != null && l.perf > 0 && (beforeTs === undefined || l.ts < beforeTs))
     .sort((a, b) => a.ts - b.ts)
     .map((l) => l.perf!);
-  const catLogs = await db.logs.where('categoryId').equals(categoryId).toArray();
+  // Categories in the same mastery group (Study + Core) share one pool of effort
+  const cats = await db.categories.toArray();
+  const group = cats.find((c) => c.id === categoryId)?.masteryGroup;
+  const members = group ? cats.filter((c) => c.masteryGroup === group).map((c) => c.id) : [categoryId];
+  const catLogs = await db.logs.where('categoryId').anyOf(members).toArray();
   const categoryEffort = catLogs
     .filter((l) => !l.isPenalty && l.id !== excludeLogId)
     .reduce((sum, l) => sum + (l.effortXp ?? l.xp), 0);

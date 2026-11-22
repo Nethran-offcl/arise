@@ -28,6 +28,9 @@ export const BASELINE_SAMPLES = 3;
 /** A result more than 2x better than your baseline / best is treated as a typo and not rewarded. */
 export const PERF_SANITY_RATIO = 2;
 
+/** Display names for shared mastery pools. */
+export const MASTERY_GROUP_NAMES: Record<string, string> = { mind: '🧠 Mind (Study + Core)' };
+
 export const MASTERY_STEP = 150; // effort XP scale for mastery levels
 export const MASTERY_PER_LEVEL = 0.02;
 export const MASTERY_CAP = 0.3;
