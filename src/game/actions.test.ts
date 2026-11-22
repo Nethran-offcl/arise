@@ -2,7 +2,8 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../db/db';
 import { levelFromXp } from '../engine/levels';
-import { deleteLog, ensureSeed, logActivity, resetAllData, setMode, spendStatPoint, updateLog } from './actions';
+import { applyDailyRecovery, deleteLog, ensureSeed, logActivity, resetAllData, setHp, setMode, spendStatPoint, updateLog } from './actions';
+import { setSetting } from '../db/db';
 import { seedDemo, wipeDemo } from './demo';
 
 const base = { qty: 3, intensity: 'normal' as const, ts: Date.now() };
@@ -59,6 +60,32 @@ describe('HP is proportional', () => {
     expect(await hpAfter(30, 'normal')).toBe(94); // -6
     expect(await hpAfter(60, 'normal')).toBe(88); // -12
     expect(await hpAfter(60, 'hard')).toBe(82); // -18
+  });
+});
+
+describe('energy', () => {
+  const DAY = 86_400_000;
+  it('lets you set HP by hand, clamped to 0..max', async () => {
+    await setHp(35);
+    expect((await db.profile.get(1))!.hp).toBe(35);
+    await setHp(500);
+    expect((await db.profile.get(1))!.hp).toBe(100);
+    await setHp(-9);
+    expect((await db.profile.get(1))!.hp).toBe(0);
+  });
+  it('recovers HP overnight, adjustable and capped', async () => {
+    const t0 = Date.now();
+    await setHp(20);
+    await applyDailyRecovery(t0); // first run just records the day
+    expect((await db.profile.get(1))!.hp).toBe(20);
+    await applyDailyRecovery(t0 + DAY); // +30
+    expect((await db.profile.get(1))!.hp).toBe(50);
+    await setSetting('dailyRecovery', 10);
+    await applyDailyRecovery(t0 + 3 * DAY); // 2 days x 10
+    expect((await db.profile.get(1))!.hp).toBe(70);
+    await setSetting('dailyRecovery', 0);
+    await applyDailyRecovery(t0 + 5 * DAY);
+    expect((await db.profile.get(1))!.hp).toBe(70);
   });
 });
 

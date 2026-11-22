@@ -21,6 +21,35 @@ export async function ensureSeed(): Promise<void> {
   if ((await db.presets.count()) === 0) await db.presets.bulkPut(DEFAULT_PRESETS);
   await migrateBuiltinHp();
   await touchPausedDay();
+  await applyDailyRecovery();
+}
+
+export const DEFAULT_DAILY_RECOVERY = 30;
+const dayNum = (key: string) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return Math.round(Date.UTC(y, m - 1, d) / 86_400_000);
+};
+
+/**
+ * Overnight recovery: each new calendar day you regain `dailyRecovery` HP (editable, 0 turns it off).
+ * Missed days stack up to a week. Sleep logs and rest days add to this; the energy check-in overrides it.
+ */
+export async function applyDailyRecovery(now = Date.now()): Promise<void> {
+  const today = dayKey(now);
+  const last = await getSetting<string | null>('lastRecoveryDay', null);
+  await setSetting('lastRecoveryDay', today);
+  if (!last || last === today) return;
+  const days = Math.min(7, Math.max(0, dayNum(today) - dayNum(last)));
+  const perDay = await getSetting<number>('dailyRecovery', DEFAULT_DAILY_RECOVERY);
+  const p = await ensureProfile();
+  const hp = Math.min(p.maxHp, p.hp + days * Math.max(0, perDay));
+  if (hp !== p.hp) await db.profile.update(1, { hp });
+}
+
+/** Energy check-in: you know your body better than any formula, so you can set HP directly. */
+export async function setHp(hp: number): Promise<void> {
+  const p = await ensureProfile();
+  await db.profile.update(1, { hp: Math.round(Math.min(p.maxHp, Math.max(0, hp))) });
 }
 
 /** v2 seed: built-in presets now scale HP with time/distance. Updates only the HP fields of built-ins. */

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Bar, btnPrimary, Segmented } from '../components/ui';
 import { SystemWindow } from '../components/SystemWindow';
 import { rankInfoForLevel } from '../engine/ranks';
-import { setMode } from '../game/actions';
+import { setHp, setMode } from '../game/actions';
 import { useMode, useProgress, useRecentLogs, useStreak } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 
@@ -61,6 +61,17 @@ export default function Home() {
       <SystemWindow title="Today">
         <Link to="/log" className={`${btnPrimary} flex items-center justify-center`}>＋ Log a task</Link>
         <p className="mt-3 text-sm text-muted">Daily quests unlock in Phase 3. For now, every task you log earns XP.</p>
+      </SystemWindow>
+
+      <SystemWindow title="Energy check-in">
+        <p className="mb-2 text-sm text-muted">How does your body actually feel? The System can't know, so you decide. This sets your HP bar.</p>
+        <input type="range" min={0} max={profile.maxHp} step={5} value={profile.hp} onChange={(e) => void setHp(Number(e.target.value))}
+          aria-label="Energy" className="h-11 w-full accent-[var(--accent)]" />
+        <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+          <button className="rounded-lg border border-line" onClick={() => void setHp(100)}>Fully rested</button>
+          <button className="rounded-lg border border-line" onClick={() => void setHp(60)}>Okay</button>
+          <button className="rounded-lg border border-line" onClick={() => void setHp(20)}>Drained</button>
+        </div>
       </SystemWindow>
 
       <SystemWindow title="Recovery mode">

@@ -1,10 +1,11 @@
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SystemWindow } from '../components/SystemWindow';
 import { btnGhost, Field, inputCls, Segmented } from '../components/ui';
-import { setSetting } from '../db/db';
+import { getSetting, setSetting } from '../db/db';
 import { DEFAULT_FORMULA, describeFormula, sanitizeFormula, type Difficulty, type Formula } from '../engine/formula';
-import { resetAllData } from '../game/actions';
+import { DEFAULT_DAILY_RECOVERY, resetAllData } from '../game/actions';
 import { seedDemo, wipeDemo } from '../game/demo';
 import { useFormula } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
@@ -13,6 +14,7 @@ export default function Settings() {
   const formula = useFormula();
   const say = useCelebrate((s) => s.say);
   const [busy, setBusy] = useState(false);
+  const recovery = useLiveQuery(() => getSetting<number>('dailyRecovery', DEFAULT_DAILY_RECOVERY), [], DEFAULT_DAILY_RECOVERY);
 
   const save = (f: Formula) => setSetting('formula', sanitizeFormula(f));
   const num = (v: string) => (v === '' ? 0 : Number(v));
@@ -31,6 +33,14 @@ export default function Settings() {
         <Segmented<Difficulty> label="Difficulty" value={formula.difficulty} onChange={(d) => save({ ...formula, difficulty: d })}
           options={[{ id: 'easy', label: 'Easy' }, { id: 'normal', label: 'Normal' }, { id: 'hard', label: 'Hard' }]} />
         <p className="mt-2 text-xs text-muted">Easy: gentler penalties, slightly lower rewards. Hard: bigger rewards, firmer penalties.</p>
+      </SystemWindow>
+
+      <SystemWindow title="Overnight recovery">
+        <p className="mb-2 text-sm text-muted">HP you regain automatically each new day (on top of sleep logs and rest days). Raise it if you recover fast, lower it if you stay drained, 0 to turn it off. You can always set HP by hand on Home.</p>
+        <Field label="HP per day">
+          <input className={inputCls} type="number" inputMode="numeric" min={0} max={100} step={5} value={recovery}
+            onChange={(e) => void setSetting('dailyRecovery', Math.min(100, Math.max(0, Number(e.target.value) || 0)))} />
+        </Field>
       </SystemWindow>
 
       <SystemWindow title="XP formula">
