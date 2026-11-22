@@ -51,6 +51,8 @@ export interface Preset {
   goldPerUnit: number;
   /** HP change applied once per log (positive = recovery, negative = fatigue/penalty). */
   hpDelta: number;
+  /** Extra HP change per unit (e.g. -0.2 per minute of gym). Optional for older custom presets. */
+  hpPerUnit?: number;
   /** Overrides the category's stat split when set. */
   weights?: Weights;
   isPenalty: boolean;

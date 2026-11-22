@@ -45,6 +45,9 @@ export default function Settings() {
           {numField('Light intensity', formula.intensity.light, (n) => ({ ...formula, intensity: { ...formula.intensity, light: n } }))}
           {numField('Normal intensity', formula.intensity.normal, (n) => ({ ...formula, intensity: { ...formula.intensity, normal: n } }))}
           {numField('Hard intensity', formula.intensity.hard, (n) => ({ ...formula, intensity: { ...formula.intensity, hard: n } }))}
+          {numField('Tiredness: light', formula.fatigue.light, (n) => ({ ...formula, fatigue: { ...formula.fatigue, light: n } }))}
+          {numField('Tiredness: normal', formula.fatigue.normal, (n) => ({ ...formula, fatigue: { ...formula.fatigue, normal: n } }))}
+          {numField('Tiredness: hard', formula.fatigue.hard, (n) => ({ ...formula, fatigue: { ...formula.fatigue, hard: n } }))}
         </div>
         <button className={`${btnGhost} mt-3 w-full`} onClick={() => { void save(DEFAULT_FORMULA); say('[SYSTEM] Formula reset to defaults.'); }}>Reset formula</button>
         <p className="mt-2 text-xs text-muted">Per-task XP and gold values are edited under Manage tasks &amp; presets.</p>

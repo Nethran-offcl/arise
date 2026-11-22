@@ -19,7 +19,18 @@ export async function ensureSeed(): Promise<void> {
   await ensureProfile();
   if ((await db.categories.count()) === 0) await db.categories.bulkPut(DEFAULT_CATEGORIES);
   if ((await db.presets.count()) === 0) await db.presets.bulkPut(DEFAULT_PRESETS);
+  await migrateBuiltinHp();
   await touchPausedDay();
+}
+
+/** v2 seed: built-in presets now scale HP with time/distance. Updates only the HP fields of built-ins. */
+async function migrateBuiltinHp(): Promise<void> {
+  if ((await getSetting<number>('seedVersion', 1)) >= 2) return;
+  for (const d of DEFAULT_PRESETS) {
+    const existing = await db.presets.get(d.id);
+    if (existing?.builtin) await db.presets.update(d.id, { hpDelta: d.hpDelta, hpPerUnit: d.hpPerUnit ?? 0 });
+  }
+  await setSetting('seedVersion', 2);
 }
 
 /** While Rest/Sick mode is on, today is recorded as a paused day (it never breaks streaks). */

@@ -24,6 +24,7 @@ interface P {
   g?: number; // base gold
   gu?: number; // gold per unit
   hp?: number;
+  hpu?: number; // HP per unit
   w?: Weights;
 }
 
@@ -38,6 +39,7 @@ const task = (p: P): Preset => ({
   baseGold: p.g ?? 0,
   goldPerUnit: p.gu ?? 0,
   hpDelta: p.hp ?? 0,
+  hpPerUnit: p.hpu ?? 0,
   weights: p.w,
   isPenalty: false,
   breaksStreak: false,
@@ -62,6 +64,7 @@ const penalty = (
   baseGold: 0,
   goldPerUnit: 0,
   hpDelta: -hpLoss,
+  hpPerUnit: 0,
   isPenalty: true,
   breaksStreak,
   penaltyQuest: quest,
@@ -70,15 +73,15 @@ const penalty = (
 
 export const DEFAULT_PRESETS: Preset[] = [
   // Cardio (AGI)
-  task({ id: 'run', c: 'cardio', n: 'Run', u: 'km', q: 3, b: 10, x: 30, g: 3, gu: 8, hp: -4 }),
-  task({ id: 'walk', c: 'cardio', n: 'Walk', u: 'minutes', q: 30, x: 0.8, gu: 0.3 }),
+  task({ id: 'run', c: 'cardio', n: 'Run', u: 'km', q: 3, b: 10, x: 30, g: 3, gu: 8, hpu: -2 }),
+  task({ id: 'walk', c: 'cardio', n: 'Walk', u: 'minutes', q: 30, x: 0.8, gu: 0.3, hpu: -0.03 }),
   // Strength (STR)
-  task({ id: 'gym', c: 'strength', n: 'Gym session', u: 'minutes', q: 45, b: 10, x: 0.9, g: 5, gu: 0.3, hp: -4 }),
+  task({ id: 'gym', c: 'strength', n: 'Gym session', u: 'minutes', q: 45, b: 10, x: 0.9, g: 5, gu: 0.3, hpu: -0.2 }),
   task({ id: 'bodyweight', c: 'strength', n: 'Bodyweight reps', u: 'count', q: 20, x: 0.5, gu: 0.2 }),
   // Sports (AGI + STR)
-  task({ id: 'badminton', c: 'sports', n: 'Badminton', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hp: -3 }),
-  task({ id: 'basketball', c: 'sports', n: 'Basketball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hp: -3 }),
-  task({ id: 'volleyball', c: 'sports', n: 'Volleyball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hp: -3 }),
+  task({ id: 'badminton', c: 'sports', n: 'Badminton', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15 }),
+  task({ id: 'basketball', c: 'sports', n: 'Basketball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15 }),
+  task({ id: 'volleyball', c: 'sports', n: 'Volleyball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15 }),
   // Study (INT)
   task({ id: 'study', c: 'study', n: 'Study session', u: 'hours', q: 1, x: 40, gu: 10 }),
   task({ id: 'assignment', c: 'study', n: 'Finish assignment', u: 'count', q: 1, x: 60, gu: 25 }),
@@ -89,7 +92,7 @@ export const DEFAULT_PRESETS: Preset[] = [
   task({ id: 'pending', c: 'tasks', n: 'Clear a pending task', u: 'count', q: 1, x: 15, gu: 5 }),
   task({ id: 'chores', c: 'tasks', n: 'House chores', u: 'count', q: 1, x: 15, gu: 5 }),
   // Recovery (VIT)
-  task({ id: 'sleep-hours', c: 'recovery', n: 'Slept', u: 'hours', q: 8, x: 6, gu: 1, hp: 20 }),
+  task({ id: 'sleep-hours', c: 'recovery', n: 'Slept', u: 'hours', q: 8, x: 6, gu: 1, hpu: 2.5 }),
   task({ id: 'sleep-ontime', c: 'recovery', n: 'Slept on time', b: 25, g: 5, hp: 10 }),
   task({ id: 'wake-ontime', c: 'recovery', n: 'Woke on time', b: 20, g: 4 }),
   task({ id: 'water', c: 'recovery', n: 'Drink water', u: 'count', q: 1, x: 3, gu: 1, hp: 1 }),

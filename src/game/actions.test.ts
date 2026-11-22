@@ -27,7 +27,7 @@ describe('logging', () => {
     expect(p.totalXp).toBe(100);
     expect(p.gold).toBe(27);
     expect(p.stats.AGI).toBe(2);
-    expect(p.hp).toBe(96);
+    expect(p.hp).toBe(94); // 3 km x -2
   });
 
   it('delete reverses a log exactly', async () => {
@@ -46,6 +46,19 @@ describe('logging', () => {
     const p = (await db.profile.get(1))!;
     expect(p.totalXp).toBe(160); // 10 + 30*5
     expect((await db.logs.count())).toBe(1);
+  });
+});
+
+describe('HP is proportional', () => {
+  it('a longer or harder session tires you more', async () => {
+    const hpAfter = async (qty: number, intensity: 'light' | 'normal' | 'hard') => {
+      await resetAllData();
+      await logActivity({ presetId: 'gym', qty, intensity, ts: Date.now() });
+      return (await db.profile.get(1))!.hp;
+    };
+    expect(await hpAfter(30, 'normal')).toBe(94); // -6
+    expect(await hpAfter(60, 'normal')).toBe(88); // -12
+    expect(await hpAfter(60, 'hard')).toBe(82); // -18
   });
 });
 

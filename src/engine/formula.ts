@@ -10,6 +10,8 @@ export interface Formula {
   /** Stat points gained per XP earned (before the category split). */
   statRate: number;
   intensity: Record<Intensity, number>;
+  /** Multiplies HP *loss* from tiring tasks (a hard session tires you more). */
+  fatigue: Record<Intensity, number>;
   difficulty: Difficulty;
   difficultyReward: Record<Difficulty, number>;
   difficultyPenalty: Record<Difficulty, number>;
@@ -23,6 +25,7 @@ export const DEFAULT_FORMULA: Formula = {
   goldMult: 1,
   statRate: 0.02,
   intensity: { light: 0.8, normal: 1, hard: 1.3 },
+  fatigue: { light: 0.6, normal: 1, hard: 1.5 },
   difficulty: 'normal',
   difficultyReward: { easy: 0.9, normal: 1, hard: 1.15 },
   difficultyPenalty: { easy: 0.5, normal: 1, hard: 1.25 },
@@ -44,6 +47,11 @@ export function sanitizeFormula(f: Formula): Formula {
       light: clamp(f.intensity.light, 0.1, 3),
       normal: clamp(f.intensity.normal, 0.1, 3),
       hard: clamp(f.intensity.hard, 0.1, 3),
+    },
+    fatigue: {
+      light: clamp(f.fatigue.light, 0, 5),
+      normal: clamp(f.fatigue.normal, 0, 5),
+      hard: clamp(f.fatigue.hard, 0, 5),
     },
     maxXpPerLog: clamp(f.maxXpPerLog, 10, 5000),
     maxGoldPerLog: clamp(f.maxGoldPerLog, 0, 5000),
@@ -87,7 +95,10 @@ export function computeReward(preset: Preset, qty: number, intensity: Intensity,
     const w = ctx.weights[k];
     if (w) statGains[k] = round1(xp * f.statRate * w);
   }
-  return { xp, gold, hp: preset.hpDelta, statGains };
+  // HP grows with amount (minutes/km...) and tiring tasks cost more when done hard.
+  const rawHp = preset.hpDelta + (preset.hpPerUnit ?? 0) * q;
+  const hp = Math.round(rawHp < 0 ? rawHp * f.fatigue[intensity] : rawHp);
+  return { xp, gold, hp, statGains };
 }
 
 export interface PenaltyEffect {
@@ -117,6 +128,7 @@ export function describeFormula(f: Formula): string[] {
   return [
     'XP = (base + per-unit x quantity) x intensity x difficulty x rank bonus x XP multiplier',
     `Intensity: light x${f.intensity.light}, normal x${f.intensity.normal}, hard x${f.intensity.hard}`,
+    `HP change = (flat + per-unit x quantity); tiring tasks x${f.fatigue.light} light, x${f.fatigue.normal} normal, x${f.fatigue.hard} hard`,
     `Difficulty (${f.difficulty}): rewards x${f.difficultyReward[f.difficulty]}, penalties x${f.difficultyPenalty[f.difficulty]}`,
     `Stat gain = XP x ${f.statRate} x the category's stat split`,
     `Caps per log: ${f.maxXpPerLog} XP, ${f.maxGoldPerLog} gold`,

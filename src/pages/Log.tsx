@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CategoryForm } from '../components/CategoryForm';
 import { LogForm } from '../components/LogForm';
 import { PresetForm } from '../components/PresetForm';
 import { SystemWindow } from '../components/SystemWindow';
@@ -18,6 +19,7 @@ export default function Log() {
   const [active, setActive] = useState<Preset | null>(null);
   const [editing, setEditing] = useState<LogEntry | null>(null);
   const [creating, setCreating] = useState(false);
+  const [newCat, setNewCat] = useState(false);
 
   const taskCats = cats.filter((c) => c.kind === 'task');
   const selectedCat = catId || taskCats[0]?.id || '';
@@ -38,6 +40,7 @@ export default function Log() {
                 {c.icon} {c.name}
               </button>
             ))}
+            <button onClick={() => setNewCat(true)} className="shrink-0 rounded-full border border-dashed border-accent px-4 text-sm text-accent">＋ Category</button>
           </div>
         )}
         {tab === 'penalty' && (
@@ -82,6 +85,11 @@ export default function Log() {
           {editingPreset
             ? <LogForm preset={editingPreset} existing={editing} onDone={() => setEditing(null)} />
             : <p className="text-muted">The preset for this log was deleted, so it can only be removed from Settings &gt; Export later.</p>}
+        </Sheet>
+      )}
+      {newCat && (
+        <Sheet title="New category" onClose={() => setNewCat(false)}>
+          <CategoryForm onDone={(id) => { setNewCat(false); if (id) setCatId(id); }} />
         </Sheet>
       )}
       {creating && (
