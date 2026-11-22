@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { db } from '../db/db';
+import type { PerfKind, PerfSpec } from '../engine/progress';
 import type { Preset, UnitKind } from '../engine/types';
 import { useCategories } from '../hooks';
 import { btnGhost, btnPrimary, Field, inputCls, Segmented } from './ui';
@@ -44,6 +45,11 @@ export function PresetForm({ initial, defaultCategory, onDone }: { initial?: Pre
   const [size, setSize] = useState<Size>('medium');
   const [body, setBody] = useState<Body>('neutral');
 
+  // Progress tracking (optional): what should earn bonus XP when you improve?
+  const [perfKind, setPerfKind] = useState<PerfKind | 'none'>(initial?.perf?.kind ?? 'none');
+  const [perfLabel, setPerfLabel] = useState(initial?.perf?.label ?? 'Heaviest weight (kg)');
+  const [perfUnit, setPerfUnit] = useState(initial?.perf?.unit ?? 'kg');
+  const [perfStart, setPerfStart] = useState(initial?.perfStart ? String(initial.perfStart) : '');
   const [defaultQty, setDefaultQty] = useState(String(initial?.defaultQty ?? 30));
   const [baseXp, setBaseXp] = useState(String(initial?.baseXp ?? 0));
   const [xpPerUnit, setXpPerUnit] = useState(String(initial?.xpPerUnit ?? 1));
@@ -72,6 +78,12 @@ export function PresetForm({ initial, defaultCategory, onDone }: { initial?: Pre
     setAdvanced(true);
   }
 
+  function buildPerf(): PerfSpec | undefined {
+    if (perfKind === 'none') return undefined;
+    if (perfKind === 'pace') return { kind: 'pace', label: 'Total time (minutes)', unit: 'min/km' };
+    return { kind: perfKind, label: perfLabel.trim() || 'Result', unit: perfUnit.trim() };
+  }
+
   async function save() {
     if (!name.trim()) return;
     const preset: Preset = {
@@ -81,6 +93,8 @@ export function PresetForm({ initial, defaultCategory, onDone }: { initial?: Pre
       name: name.trim(),
       unit,
       ...current,
+      perf: buildPerf(),
+      perfStart: perfKind !== 'none' && Number(perfStart) > 0 ? Number(perfStart) : undefined,
     };
     await db.presets.put(preset);
     onDone(preset);
@@ -128,6 +142,29 @@ export function PresetForm({ initial, defaultCategory, onDone }: { initial?: Pre
           {unit !== 'none' && <Field label={`Extra HP change${per}`}><input className={inputCls} type="number" inputMode="decimal" step={0.05} value={hpPerUnit} onChange={(e) => setHpPerUnit(e.target.value)} /></Field>}
         </div>
       )}
+
+      <div className="space-y-2 rounded-lg border border-line p-3">
+        <Field label="Reward getting better? (optional)">
+          <select className={inputCls} value={perfKind} onChange={(e) => setPerfKind(e.target.value as PerfKind | 'none')}>
+            <option value="none">No, just count the effort</option>
+            {unit === 'km' && <option value="pace">Speed: I enter total time, the app works out pace</option>}
+            <option value="higher">A number that should go UP (weight, rating, reps...)</option>
+            <option value="lower">A number that should go DOWN (time, mistakes...)</option>
+          </select>
+        </Field>
+        {(perfKind === 'higher' || perfKind === 'lower') && (
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Question to ask"><input className={inputCls} value={perfLabel} maxLength={50} onChange={(e) => setPerfLabel(e.target.value)} /></Field>
+            <Field label="Unit"><input className={inputCls} value={perfUnit} maxLength={8} onChange={(e) => setPerfUnit(e.target.value)} /></Field>
+          </div>
+        )}
+        {perfKind !== 'none' && (
+          <Field label="Your starting level (optional)">
+            <input className={inputCls} type="number" inputMode="decimal" step="any" value={perfStart} placeholder="Leave empty to use your first 3 results" onChange={(e) => setPerfStart(e.target.value)} />
+          </Field>
+        )}
+        {perfKind !== 'none' && <p className="text-xs text-muted">Doing better than your starting level pays up to +75% XP, and a new personal record adds +15%. A slower or lighter day never costs XP.</p>}
+      </div>
 
       <p className="rounded-lg border border-line bg-black/30 p-3 text-sm text-accent" aria-live="polite">
         {exampleLabel}: {exXp} XP · {exGold} gold · HP {exHp > 0 ? '+' : ''}{exHp}

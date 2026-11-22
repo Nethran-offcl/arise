@@ -72,7 +72,7 @@ export default function Log() {
                   <span className="block">{l.label}{l.unit !== 'none' && ` · ${l.qty}${l.unit === 'count' ? 'x' : l.unit === 'minutes' ? ' min' : l.unit === 'hours' ? ' h' : ' km'}`}</span>
                   <span className="block text-xs text-muted">{new Date(l.ts).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}{l.paused ? ' · paused' : ''}</span>
                 </span>
-                <span className={l.isPenalty ? 'text-red-300' : 'text-accent'}>{l.xp > 0 ? '+' : ''}{l.xp} XP</span>
+                <span className={l.isPenalty ? 'text-red-300' : 'text-accent'}>{l.xp > 0 ? '+' : ''}{l.xp.toLocaleString()} XP{l.pr ? ' 🏆' : ''}</span>
               </button>
             </li>
           ))}

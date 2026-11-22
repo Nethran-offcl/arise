@@ -35,6 +35,15 @@ export interface LogEntry {
   breaksStreak: boolean;
   /** True when Rest/Sick mode switched this penalty off. */
   paused?: boolean;
+  /** Result you entered for improvement tracking (pace in min/km, weight in kg, rating...). */
+  perf?: number;
+  /** Progress bonus applied (0.2 = +20%) and whether it set a personal record. */
+  perfBonus?: number;
+  pr?: boolean;
+  /** XP for the effort itself, before level scaling (drives mastery and stats). */
+  effortXp?: number;
+  levelScale?: number;
+  masteryBonus?: number;
   note?: string;
   demo?: boolean;
 }

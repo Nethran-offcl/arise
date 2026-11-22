@@ -19,6 +19,8 @@ export type Intensity = 'light' | 'normal' | 'hard';
 export type Rank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 export type PlayMode = 'normal' | 'rest' | 'sick';
 
+import type { PerfSpec } from './progress';
+
 export interface Category {
   id: string;
   name: string;
@@ -53,6 +55,10 @@ export interface Preset {
   hpDelta: number;
   /** Extra HP change per unit (e.g. -0.2 per minute of gym). Optional for older custom presets. */
   hpPerUnit?: number;
+  /** What to track to reward improvement (pace, weight lifted, rating...). */
+  perf?: PerfSpec;
+  /** Optional starting value for perf (otherwise your first 3 results are used). */
+  perfStart?: number;
   /** Overrides the category's stat split when set. */
   weights?: Weights;
   isPenalty: boolean;

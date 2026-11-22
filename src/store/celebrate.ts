@@ -44,7 +44,8 @@ export const useCelebrate = create<State>((set, get) => ({
       .filter(([, v]) => v)
       .map(([k, v]) => `${k} +${v}`)
       .join(' ');
-    say(`[SYSTEM] +${r.xp} XP · +${r.gold} gold${gains ? ' · ' + gains : ''}`);
+    const bonus = r.perfBonus > 0 ? ` · progress +${Math.round(r.perfBonus * 100)}%` : '';
+    say(`[SYSTEM] ${r.pr ? 'NEW PERSONAL RECORD! ' : ''}+${r.xp.toLocaleString()} XP · +${r.gold} gold${bonus}${gains ? ' · ' + gains : ''}`);
     if (r.levelAfter > r.levelBefore) {
       try { navigator.vibrate?.([80, 40, 80]); } catch { /* vibration not supported */ }
       push({ kind: 'level', level: r.levelAfter, points: (r.levelAfter - r.levelBefore) * 3 });

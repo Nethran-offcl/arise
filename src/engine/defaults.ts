@@ -1,3 +1,4 @@
+import type { PerfSpec } from './progress';
 import type { Category, Preset, UnitKind, Weights } from './types';
 
 /** Starter categories. Everything here can be edited, and you can add your own. */
@@ -25,8 +26,13 @@ interface P {
   gu?: number; // gold per unit
   hp?: number;
   hpu?: number; // HP per unit
+  perf?: PerfSpec;
   w?: Weights;
 }
+
+const PACE: PerfSpec = { kind: 'pace', label: 'Total time (minutes)', unit: 'min/km' };
+const LIFT: PerfSpec = { kind: 'higher', label: 'Heaviest weight lifted (kg)', unit: 'kg' };
+const PLAY: PerfSpec = { kind: 'higher', label: 'How well did you play? (1-10, honest rating)', unit: '/10' };
 
 const task = (p: P): Preset => ({
   id: p.id,
@@ -40,6 +46,7 @@ const task = (p: P): Preset => ({
   goldPerUnit: p.gu ?? 0,
   hpDelta: p.hp ?? 0,
   hpPerUnit: p.hpu ?? 0,
+  perf: p.perf,
   weights: p.w,
   isPenalty: false,
   breaksStreak: false,
@@ -73,15 +80,15 @@ const penalty = (
 
 export const DEFAULT_PRESETS: Preset[] = [
   // Cardio (AGI)
-  task({ id: 'run', c: 'cardio', n: 'Run', u: 'km', q: 3, b: 10, x: 30, g: 3, gu: 8, hpu: -2 }),
+  task({ id: 'run', c: 'cardio', n: 'Run', u: 'km', q: 3, b: 10, x: 30, g: 3, gu: 8, hpu: -2, perf: PACE }),
   task({ id: 'walk', c: 'cardio', n: 'Walk', u: 'minutes', q: 30, x: 0.8, gu: 0.3, hpu: -0.03 }),
   // Strength (STR)
-  task({ id: 'gym', c: 'strength', n: 'Gym session', u: 'minutes', q: 45, b: 10, x: 0.9, g: 5, gu: 0.3, hpu: -0.2 }),
+  task({ id: 'gym', c: 'strength', n: 'Gym session', u: 'minutes', q: 45, b: 10, x: 0.9, g: 5, gu: 0.3, hpu: -0.2, perf: LIFT }),
   task({ id: 'bodyweight', c: 'strength', n: 'Bodyweight reps', u: 'count', q: 20, x: 0.5, gu: 0.2 }),
   // Sports (AGI + STR)
-  task({ id: 'badminton', c: 'sports', n: 'Badminton', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15 }),
-  task({ id: 'basketball', c: 'sports', n: 'Basketball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15 }),
-  task({ id: 'volleyball', c: 'sports', n: 'Volleyball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15 }),
+  task({ id: 'badminton', c: 'sports', n: 'Badminton', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY }),
+  task({ id: 'basketball', c: 'sports', n: 'Basketball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY }),
+  task({ id: 'volleyball', c: 'sports', n: 'Volleyball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY }),
   // Study (INT)
   task({ id: 'study', c: 'study', n: 'Study session', u: 'hours', q: 1, x: 40, gu: 10 }),
   task({ id: 'assignment', c: 'study', n: 'Finish assignment', u: 'count', q: 1, x: 60, gu: 25 }),

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../db/db';
-import { levelFromXp } from '../engine/levels';
+import { levelFromXp, xpAtLevelStart } from '../engine/levels';
 import { applyDailyRecovery, deleteLog, ensureSeed, logActivity, resetAllData, setHp, setMode, spendStatPoint, updateLog } from './actions';
 import { setSetting } from '../db/db';
 import { seedDemo, wipeDemo } from './demo';
@@ -23,12 +23,17 @@ describe('logging', () => {
     const r = await logActivity({ ...base, presetId: 'run' });
     expect(r.xp).toBe(100);
     expect(r.levelBefore).toBe(1);
-    expect(r.levelAfter).toBe(2);
+    expect(r.levelAfter).toBe(1); // level 1 costs 600 XP
     const p = (await db.profile.get(1))!;
     expect(p.totalXp).toBe(100);
     expect(p.gold).toBe(27);
     expect(p.stats.AGI).toBe(2);
     expect(p.hp).toBe(94); // 3 km x -2
+  });
+
+  it('levels up when XP passes the level cost', async () => {
+    const r = await logActivity({ ...base, presetId: 'run', qty: 20 }); // 10 + 30*20 = 610
+    expect(r.levelAfter).toBe(2);
   });
 
   it('delete reverses a log exactly', async () => {
@@ -89,6 +94,45 @@ describe('energy', () => {
   });
 });
 
+describe('XP scales with level', () => {
+  it('pays and deducts proportionally at higher levels', async () => {
+    await db.profile.update(1, { totalXp: xpAtLevelStart(10) + 3000 });
+    const r = await logActivity({ ...base, presetId: 'run' });
+    expect(r.xp).toBe(1050); // 100 effort x level 10 x rank D 1.05
+    const pen = await logActivity({ ...base, presetId: 'p-junk', qty: 1 });
+    expect(pen.xp).toBe(-50); // 5 x level 10
+  });
+});
+
+describe('progress bonuses', () => {
+  const run = (perf?: number) => logActivity({ ...base, presetId: 'run', perf });
+
+  it('mastery makes a category pay more as you put effort in', async () => {
+    expect((await run()).xp).toBe(100);
+    expect((await run()).xp).toBe(100);
+    expect((await run()).xp).toBe(102); // 300 effort -> mastery 1 -> +2%
+  });
+
+  it('a faster run pays more and sets a personal record; a slower one never pays less', async () => {
+    for (let i = 0; i < 3; i++) await run(7); // starting level: 7 min/km
+    const fast = await run(6); // 7/6 -> +25%, PR +15% => 140 effort, mastery +2%
+    expect(fast.pr).toBe(true);
+    expect(fast.xp).toBe(143);
+    const slow = await run(8);
+    expect(slow.pr).toBe(false);
+    expect(slow.xp).toBe(102);
+  });
+
+  it('editing a log recalculates its bonus without counting itself', async () => {
+    for (let i = 0; i < 3; i++) await run(7);
+    const fast = await run(6);
+    await updateLog(fast.logId, { ...base, presetId: 'run', perf: 7 });
+    const log = (await db.logs.get(fast.logId))!;
+    expect(log.pr).toBe(false);
+    expect(log.perfBonus).toBe(0);
+  });
+});
+
 describe('penalties', () => {
   it('deduct small xp but never below the current level start', async () => {
     const r = await logActivity({ ...base, presetId: 'p-junk', qty: 1 });
@@ -121,7 +165,7 @@ describe('penalties', () => {
 describe('stat points and demo data', () => {
   it('spends free points only when available', async () => {
     expect(await spendStatPoint('STR')).toBe(false);
-    await logActivity({ ...base, presetId: 'run' }); // level 2 -> 3 points
+    await logActivity({ ...base, presetId: 'run', qty: 20 }); // level 2 -> 3 points
     expect(await spendStatPoint('STR')).toBe(true);
     const p = (await db.profile.get(1))!;
     expect(p.stats.STR).toBe(1);

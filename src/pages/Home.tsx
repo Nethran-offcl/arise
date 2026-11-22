@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Bar, btnPrimary, Segmented } from '../components/ui';
 import { SystemWindow } from '../components/SystemWindow';
-import { rankInfoForLevel } from '../engine/ranks';
+import { rankInfoForLevel, RANKS } from '../engine/ranks';
 import { setHp, setMode } from '../game/actions';
 import { useMode, useProgress, useRecentLogs, useStreak } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
@@ -39,7 +39,7 @@ export default function Home() {
 
           <div className="mt-4 space-y-3">
             <div>
-              <div className="mb-1 flex justify-between text-sm"><span>Level {level}</span><span className="text-muted">{into} / {needed} XP</span></div>
+              <div className="mb-1 flex justify-between text-sm"><span>Level {level}</span><span className="text-muted">{into.toLocaleString()} / {needed.toLocaleString()} XP</span></div>
               <Bar value={into} max={needed} label="Experience" />
             </div>
             <div>
@@ -94,6 +94,6 @@ export default function Home() {
 
 function nextRankLabel(level: number): string {
   const cur = rankInfoForLevel(level);
-  const nextLevel = [10, 20, 35, 50, 70].find((l) => l > level);
+  const nextLevel = RANKS.map((r) => r.minLevel).find((l) => l > level);
   return cur.rank === 'S' || !nextLevel ? 'MAX' : `Lv ${nextLevel}`;
 }

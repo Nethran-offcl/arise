@@ -1,4 +1,5 @@
 import type { Intensity, PlayMode, Preset, StatKey, Stats, Weights } from './types';
+import { levelScale } from './levels';
 import { STAT_KEYS } from './types';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -29,7 +30,7 @@ export const DEFAULT_FORMULA: Formula = {
   difficulty: 'normal',
   difficultyReward: { easy: 0.9, normal: 1, hard: 1.15 },
   difficultyPenalty: { easy: 0.5, normal: 1, hard: 1.25 },
-  maxXpPerLog: 500,
+  maxXpPerLog: 1000,
   maxGoldPerLog: 300,
 };
 
@@ -63,15 +64,27 @@ export function presetWeights(preset: Preset, categoryWeights: Weights): Weights
 }
 
 export interface Reward {
+  /** Final XP awarded (effort x level scale x rank x mastery). */
   xp: number;
+  /** XP for what you did, before level scaling. Stats and mastery are based on this. */
+  effortXp: number;
   gold: number;
   hp: number;
   statGains: Partial<Stats>;
+  levelScale: number;
+  perfBonus: number;
+  masteryBonus: number;
 }
 
 export interface RewardContext {
   formula: Formula;
+  /** Your level: rewards scale with it so levelling keeps the same pace. */
+  level?: number;
   rankRewardMult: number;
+  /** Bonus for beating your starting level / a personal record (0.2 = +20%). */
+  perfBonus?: number;
+  /** Bonus from category mastery. */
+  masteryBonus?: number;
   /** Permanent bonus from Shadows for this category, e.g. 0.05 = +5% (Phase 6). */
   shadowBonus?: number;
   weights: Weights;
@@ -79,26 +92,35 @@ export interface RewardContext {
 
 /**
  * Reward for a normal (non-penalty) log.
- *   xp = (baseXp + xpPerUnit * qty) x intensity x difficulty x rank x xpMult x (1 + shadow)
+ *   effort = (base + per-unit x qty) x intensity x difficulty x XP multiplier x (1 + progress bonus)
+ *   xp     = effort x level scale x rank bonus x (1 + mastery) x (1 + shadow)
+ * Gold is not level-scaled (so shop prices stay meaningful). Stats grow from effort, not level scale.
  */
 export function computeReward(preset: Preset, qty: number, intensity: Intensity, ctx: RewardContext): Reward {
   const f = ctx.formula;
   const q = Math.max(0, qty);
-  const common = f.intensity[intensity] * f.difficultyReward[f.difficulty] * ctx.rankRewardMult * (1 + (ctx.shadowBonus ?? 0));
+  const scale = levelScale(ctx.level ?? 1);
+  const perf = ctx.perfBonus ?? 0;
+  const mastery = ctx.masteryBonus ?? 0;
+  const shadow = ctx.shadowBonus ?? 0;
+  const base = f.intensity[intensity] * f.difficultyReward[f.difficulty];
   const rawXp = preset.baseXp + preset.xpPerUnit * q;
   const rawGold = preset.baseGold + preset.goldPerUnit * q;
-  let xp = Math.min(f.maxXpPerLog, Math.round(rawXp * common * f.xpMult));
-  if (rawXp > 0 && xp < 1) xp = 1;
-  const gold = Math.min(f.maxGoldPerLog, Math.round(rawGold * common * f.goldMult));
+
+  let effortXp = Math.min(f.maxXpPerLog, Math.round(rawXp * base * f.xpMult * (1 + perf)));
+  if (rawXp > 0 && effortXp < 1) effortXp = 1;
+  const xp = Math.round(effortXp * scale * ctx.rankRewardMult * (1 + mastery) * (1 + shadow));
+  const gold = Math.min(f.maxGoldPerLog, Math.round(rawGold * base * ctx.rankRewardMult * (1 + shadow) * f.goldMult));
+
   const statGains: Partial<Stats> = {};
   for (const k of STAT_KEYS) {
     const w = ctx.weights[k];
-    if (w) statGains[k] = round1(xp * f.statRate * w);
+    if (w) statGains[k] = round1(effortXp * f.statRate * w);
   }
   // HP grows with amount (minutes/km...) and tiring tasks cost more when done hard.
   const rawHp = preset.hpDelta + (preset.hpPerUnit ?? 0) * q;
   const hp = Math.round(rawHp < 0 ? rawHp * f.fatigue[intensity] : rawHp);
-  return { xp, gold, hp, statGains };
+  return { xp, effortXp, gold, hp, statGains, levelScale: scale, perfBonus: perf, masteryBonus: mastery };
 }
 
 export interface PenaltyEffect {
@@ -112,11 +134,12 @@ export interface PenaltyEffect {
 }
 
 /** Penalties are small. Rest Day and Sick/Injury mode switch them off entirely. */
-export function computePenalty(preset: Preset, formula: Formula, mode: PlayMode): PenaltyEffect {
+export function computePenalty(preset: Preset, formula: Formula, mode: PlayMode, scale = 1): PenaltyEffect {
   if (mode !== 'normal') return { xpLoss: 0, hpLoss: 0, breaksStreak: false, paused: true };
   const m = formula.difficultyPenalty[formula.difficulty];
   return {
-    xpLoss: Math.round(preset.baseXp * m),
+    // XP loss scales with level too, so a penalty stays the same small fraction of a level.
+    xpLoss: Math.round(preset.baseXp * m * scale),
     hpLoss: Math.round(Math.abs(preset.hpDelta) * m),
     breaksStreak: preset.breaksStreak,
     paused: false,
@@ -126,7 +149,8 @@ export function computePenalty(preset: Preset, formula: Formula, mode: PlayMode)
 /** Human-readable formula shown in Settings so nothing is a black box. */
 export function describeFormula(f: Formula): string[] {
   return [
-    'XP = (base + per-unit x quantity) x intensity x difficulty x rank bonus x XP multiplier',
+    'Effort = (base + per-unit x quantity) x intensity x difficulty x XP multiplier x (1 + progress bonus)',
+    'XP = effort x your level x rank bonus x (1 + category mastery). Level cost also grows with level, so your pace never slows.',
     `Intensity: light x${f.intensity.light}, normal x${f.intensity.normal}, hard x${f.intensity.hard}`,
     `HP change = (flat + per-unit x quantity); tiring tasks x${f.fatigue.light} light, x${f.fatigue.normal} normal, x${f.fatigue.hard} hard`,
     `Difficulty (${f.difficulty}): rewards x${f.difficultyReward[f.difficulty]}, penalties x${f.difficultyPenalty[f.difficulty]}`,

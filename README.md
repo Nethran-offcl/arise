@@ -43,3 +43,10 @@ Every `git push` to `main` redeploys automatically.
 - Routing uses `#/` URLs so refreshing works on GitHub Pages.
 - Secrets: nothing secret lives in this repo. The Groq key (Phase 5) lives only in a Cloudflare Worker secret.
 - Icons are generated from `public/icon.svg` with `node scripts/gen-icons.mjs`.
+
+## How XP works (so levelling never slows down)
+
+- XP needed per level = 600 x level.
+- Every reward is multiplied by your level, so the same effort pays more as levels cost more. A normal day always moves you the same distance through a level.
+- Progress bonuses add on top: run faster / lift heavier / play better than your starting level (up to +75%), new personal records (+15%), and category mastery (+2% per mastery level, up to +30%).
+- A slower or lighter day never costs XP. Gold is not level-scaled, so shop prices stay meaningful.

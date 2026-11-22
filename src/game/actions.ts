@@ -1,7 +1,9 @@
 import { db, ensureProfile, getSetting, setSetting, type LogEntry, type Profile } from '../db/db';
 import { DEFAULT_CATEGORIES, DEFAULT_PRESETS } from '../engine/defaults';
 import { computePenalty, computeReward, DEFAULT_FORMULA, presetWeights, sanitizeFormula, type Formula } from '../engine/formula';
-import { applyXpDelta, freeStatPoints, levelFromXp } from '../engine/levels';
+import { applyXpDelta, freeStatPoints, levelFromXp, levelScale } from '../engine/levels';
+import { masteryInfo, performanceBonus } from '../engine/progress';
+import { loadProgressInputs } from './progress';
 import { rankInfoForLevel } from '../engine/ranks';
 import { dayKey } from '../engine/streak';
 import type { Intensity, PenaltyQuestHint, PlayMode, StatKey } from '../engine/types';
@@ -52,14 +54,14 @@ export async function setHp(hp: number): Promise<void> {
   await db.profile.update(1, { hp: Math.round(Math.min(p.maxHp, Math.max(0, hp))) });
 }
 
-/** v2 seed: built-in presets now scale HP with time/distance. Updates only the HP fields of built-ins. */
+/** Seed v3: built-in presets get HP scaling and progress tracking. Only touches those fields of built-ins. */
 async function migrateBuiltinHp(): Promise<void> {
-  if ((await getSetting<number>('seedVersion', 1)) >= 2) return;
+  if ((await getSetting<number>('seedVersion', 1)) >= 3) return;
   for (const d of DEFAULT_PRESETS) {
     const existing = await db.presets.get(d.id);
-    if (existing?.builtin) await db.presets.update(d.id, { hpDelta: d.hpDelta, hpPerUnit: d.hpPerUnit ?? 0 });
+    if (existing?.builtin) await db.presets.update(d.id, { hpDelta: d.hpDelta, hpPerUnit: d.hpPerUnit ?? 0, perf: d.perf });
   }
-  await setSetting('seedVersion', 2);
+  await setSetting('seedVersion', 3);
 }
 
 /** While Rest/Sick mode is on, today is recorded as a paused day (it never breaks streaks). */
@@ -88,6 +90,8 @@ export interface LogInput {
   ts: number;
   note?: string;
   demo?: boolean;
+  /** Result for improvement tracking (e.g. pace = minutes / km, or kg lifted). */
+  perf?: number;
 }
 
 export interface LogResult {
@@ -103,12 +107,14 @@ export interface LogResult {
   isPenalty: boolean;
   paused: boolean;
   penaltyQuest?: PenaltyQuestHint;
+  pr: boolean;
+  perfBonus: number;
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /** Builds the log + profile change for an input, without writing anything. */
-async function computeEffects(input: LogInput, profile: Profile, formula: Formula, mode: PlayMode) {
+async function computeEffects(input: LogInput, profile: Profile, formula: Formula, mode: PlayMode, excludeLogId?: number) {
   const preset = await db.presets.get(input.presetId);
   if (!preset) throw new Error('Unknown preset');
   const cat = await db.categories.get(preset.categoryId);
@@ -129,7 +135,7 @@ async function computeEffects(input: LogInput, profile: Profile, formula: Formul
   };
 
   if (preset.isPenalty) {
-    const eff = computePenalty(preset, formula, mode);
+    const eff = computePenalty(preset, formula, mode, levelScale(level));
     const newTotal = applyXpDelta(profile.totalXp, -eff.xpLoss);
     const entry: Omit<LogEntry, 'id'> = {
       ...base,
@@ -143,12 +149,31 @@ async function computeEffects(input: LogInput, profile: Profile, formula: Formul
     return { preset, entry };
   }
 
+  const prog = await loadProgressInputs(preset.id, preset.categoryId, excludeLogId);
+  const perf = preset.perf && input.perf && input.perf > 0
+    ? performanceBonus(preset.perf.kind, input.perf, prog.perfValues, preset.perfStart)
+    : { bonus: 0, pr: false };
   const reward = computeReward(preset, input.qty, input.intensity, {
     formula,
+    level,
     rankRewardMult: rankInfoForLevel(level).rewardMult,
+    perfBonus: perf.bonus,
+    masteryBonus: masteryInfo(prog.categoryEffort).bonus,
     weights: presetWeights(preset, cat?.weights ?? {}),
   });
-  const entry: Omit<LogEntry, 'id'> = { ...base, xp: reward.xp, gold: reward.gold, hp: reward.hp, statGains: reward.statGains };
+  const entry: Omit<LogEntry, 'id'> = {
+    ...base,
+    xp: reward.xp,
+    gold: reward.gold,
+    hp: reward.hp,
+    statGains: reward.statGains,
+    perf: preset.perf ? input.perf : undefined,
+    perfBonus: perf.bonus,
+    pr: perf.pr,
+    effortXp: reward.effortXp,
+    levelScale: reward.levelScale,
+    masteryBonus: reward.masteryBonus,
+  };
   return { preset, entry };
 }
 
@@ -189,6 +214,8 @@ export async function logActivity(input: LogInput): Promise<LogResult> {
       isPenalty: entry.isPenalty,
       paused: !!entry.paused,
       penaltyQuest: preset.isPenalty && !entry.paused ? preset.penaltyQuest : undefined,
+      pr: !!entry.pr,
+      perfBonus: entry.perfBonus ?? 0,
     };
   });
 }
@@ -200,7 +227,7 @@ export async function updateLog(id: number, input: LogInput): Promise<void> {
     if (!old) return;
     const reverted = applyToProfile(await ensureProfile(), old, -1);
     const [formula, mode] = await Promise.all([getFormula(), getMode()]);
-    const { entry } = await computeEffects(input, reverted, formula, mode);
+    const { entry } = await computeEffects(input, reverted, formula, mode, id);
     await db.logs.put({ ...(entry as LogEntry), id, demo: old.demo });
     await db.profile.put(applyToProfile(reverted, entry, 1));
   });

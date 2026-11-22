@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PRESETS } from './defaults';
 import { computePenalty, computeReward, DEFAULT_FORMULA, sanitizeFormula } from './formula';
-import { applyXpDelta, freeStatPoints, levelFromXp, xpAtLevelStart, xpToNext } from './levels';
+import { applyXpDelta, freeStatPoints, levelFromXp, levelScale, xpAtLevelStart, xpToNext } from './levels';
+import { masteryInfo, performanceBonus } from './progress';
 import { rankInfoForLevel } from './ranks';
 import { computeStreak, dayKey } from './streak';
 
@@ -9,14 +10,15 @@ const preset = (id: string) => DEFAULT_PRESETS.find((p) => p.id === id)!;
 const ctx = { formula: DEFAULT_FORMULA, rankRewardMult: 1, weights: { AGI: 1 } };
 
 describe('levels', () => {
-  it('follows 100 * level^1.4', () => {
-    expect(xpToNext(1)).toBe(100);
-    expect(xpToNext(10)).toBe(Math.round(100 * Math.pow(10, 1.4)));
+  it('grows linearly: 600 x level', () => {
+    expect(xpToNext(1)).toBe(600);
+    expect(xpToNext(10)).toBe(6000);
   });
   it('derives level from total xp', () => {
     expect(levelFromXp(0).level).toBe(1);
-    expect(levelFromXp(99).level).toBe(1);
-    expect(levelFromXp(100).level).toBe(2);
+    expect(levelFromXp(599).level).toBe(1);
+    expect(levelFromXp(600).level).toBe(2);
+    expect(xpAtLevelStart(3)).toBe(1800);
     expect(levelFromXp(xpAtLevelStart(7)).level).toBe(7);
     expect(levelFromXp(xpAtLevelStart(7) - 1).level).toBe(6);
   });
@@ -38,11 +40,14 @@ describe('ranks', () => {
     expect(rankInfoForLevel(1).rank).toBe('E');
     expect(rankInfoForLevel(9).rank).toBe('E');
     expect(rankInfoForLevel(10).rank).toBe('D');
-    expect(rankInfoForLevel(35).rank).toBe('B');
-    expect(rankInfoForLevel(99).rank).toBe('S');
+    expect(rankInfoForLevel(24).rank).toBe('D');
+    expect(rankInfoForLevel(25).rank).toBe('C');
+    expect(rankInfoForLevel(45).rank).toBe('B');
+    expect(rankInfoForLevel(70).rank).toBe('A');
+    expect(rankInfoForLevel(100).rank).toBe('S');
   });
   it('pays slightly more at higher ranks', () => {
-    expect(rankInfoForLevel(70).rewardMult).toBeGreaterThan(rankInfoForLevel(1).rewardMult);
+    expect(rankInfoForLevel(100).rewardMult).toBeGreaterThan(rankInfoForLevel(1).rewardMult);
   });
 });
 
@@ -71,6 +76,62 @@ describe('rewards', () => {
     const f = sanitizeFormula({ ...DEFAULT_FORMULA, xpMult: 999, statRate: -3 });
     expect(f.xpMult).toBe(5);
     expect(f.statRate).toBe(0);
+  });
+});
+
+describe('constant pace (levelling never slows down)', () => {
+  it('the same effort pays proportionally more as the level cost grows', () => {
+    const sessionsPerLevel = (level: number) => {
+      const xp = computeReward(preset('run'), 3, 'normal', { ...ctx, level }).xp;
+      return xpToNext(level) / xp;
+    };
+    for (const L of [1, 5, 10, 50, 100, 199]) expect(sessionsPerLevel(L)).toBeCloseTo(6, 5);
+  });
+  it('level scale equals the level', () => {
+    expect(levelScale(1)).toBe(1);
+    expect(levelScale(40)).toBe(40);
+  });
+  it('stat gains come from effort, not level scale (stats do not explode)', () => {
+    const low = computeReward(preset('run'), 3, 'normal', { ...ctx, level: 1 });
+    const high = computeReward(preset('run'), 3, 'normal', { ...ctx, level: 80 });
+    expect(high.statGains.AGI).toBe(low.statGains.AGI);
+    expect(high.gold).toBe(low.gold);
+    expect(high.xp).toBe(low.xp * 80);
+  });
+  it('penalties scale with level too', () => {
+    const p = preset('p-junk');
+    expect(computePenalty(p, DEFAULT_FORMULA, 'normal', 1).xpLoss).toBe(5);
+    expect(computePenalty(p, DEFAULT_FORMULA, 'normal', 10).xpLoss).toBe(50);
+  });
+});
+
+describe('progress bonuses', () => {
+  it('rewards getting faster (pace: lower is better) but needs 3 earlier results', () => {
+    expect(performanceBonus('pace', 6, [7, 7]).bonus).toBeCloseTo(0.15, 5); // only the PR part
+    const r = performanceBonus('pace', 6, [7, 7, 7]);
+    expect(r.pr).toBe(true);
+    expect(r.bonus).toBeCloseTo((7 / 6 - 1) * 1.5 + 0.15, 5);
+  });
+  it('rewards lifting heavier (higher is better)', () => {
+    const r = performanceBonus('higher', 60, [50, 50, 50]);
+    expect(r.bonus).toBeCloseTo(0.3 + 0.15, 5);
+  });
+  it('never reduces XP for a slower or lighter day', () => {
+    expect(performanceBonus('pace', 8, [7, 7, 7])).toMatchObject({ bonus: 0, pr: false });
+    expect(performanceBonus('higher', 40, [50, 50, 50])).toMatchObject({ bonus: 0, pr: false });
+  });
+  it('uses a starting value you set, and caps the bonus', () => {
+    expect(performanceBonus('higher', 60, [], 50).bonus).toBeCloseTo(0.3, 5);
+    expect(performanceBonus('higher', 500, [50, 50, 50]).bonus).toBeLessThanOrEqual(0.9);
+  });
+  it('ignores empty input', () => {
+    expect(performanceBonus('pace', 0, [7, 7, 7]).bonus).toBe(0);
+  });
+  it('category mastery grows with effort and is capped', () => {
+    expect(masteryInfo(0)).toMatchObject({ level: 0, bonus: 0 });
+    expect(masteryInfo(150).level).toBe(1);
+    expect(masteryInfo(600).bonus).toBeCloseTo(0.04, 5);
+    expect(masteryInfo(10_000_000).bonus).toBe(0.3);
   });
 });
 
