@@ -1,11 +1,11 @@
 import { db, ensureProfile, getSetting, setSetting, type LogEntry, type Profile } from '../db/db';
 import { DEFAULT_CATEGORIES, DEFAULT_PRESETS } from '../engine/defaults';
-import { computePenalty, computeReward, DEFAULT_FORMULA, presetWeights, sanitizeFormula, type Formula } from '../engine/formula';
+import { computePenalty, computeReward, DEFAULT_FORMULA, maxQtyFor, presetWeights, sanitizeFormula, type Formula } from '../engine/formula';
 import { applyXpDelta, freeStatPoints, levelFromXp, levelScale } from '../engine/levels';
 import { masteryInfo, performanceBonus } from '../engine/progress';
 import { loadProgressInputs } from './progress';
 import { rankInfoForLevel } from '../engine/ranks';
-import { dayKey } from '../engine/streak';
+import { dayKey, setDayStartHour } from '../engine/streak';
 import type { Intensity, PenaltyQuestHint, PlayMode, StatKey } from '../engine/types';
 import { STAT_KEYS } from '../engine/types';
 
@@ -18,15 +18,18 @@ export const getMode = () => getSetting<PlayMode>('mode', 'normal');
 
 /** Inserts the starter categories/presets the first time the app runs. */
 export async function ensureSeed(): Promise<void> {
+  setDayStartHour(await getSetting<number>('dayStartHour', DEFAULT_DAY_START_HOUR));
   await ensureProfile();
   if ((await db.categories.count()) === 0) await db.categories.bulkPut(DEFAULT_CATEGORIES);
   if ((await db.presets.count()) === 0) await db.presets.bulkPut(DEFAULT_PRESETS);
   await migrateBuiltinHp();
+  await expireRestMode();
   await touchPausedDay();
   await applyDailyRecovery();
 }
 
 export const DEFAULT_DAILY_RECOVERY = 30;
+export const DEFAULT_DAY_START_HOUR = 4;
 const dayNum = (key: string) => {
   const [y, m, d] = key.split('-').map(Number);
   return Math.round(Date.UTC(y, m - 1, d) / 86_400_000);
@@ -72,8 +75,15 @@ export async function touchPausedDay(now = Date.now()): Promise<void> {
   await setSetting('pausedDays', [...days]);
 }
 
+/** A Rest Day lasts one day: it switches itself off when a new day starts, so it can't be left on by accident. */
+export async function expireRestMode(now = Date.now()): Promise<void> {
+  if ((await getMode()) !== 'rest') return;
+  if ((await getSetting<string | null>('modeDay', null)) !== dayKey(now)) await setSetting('mode', 'normal');
+}
+
 export async function setMode(mode: PlayMode, now = Date.now()): Promise<void> {
   const prev = await getMode();
+  if (prev !== mode) await setSetting('modeDay', dayKey(now)); // when this mode started
   await setSetting('mode', mode);
   await touchPausedDay(now);
   // A rest day genuinely restores some HP (once, when it starts).
@@ -92,6 +102,8 @@ export interface LogInput {
   demo?: boolean;
   /** Result for improvement tracking (e.g. pace = minutes / km, or kg lifted). */
   perf?: number;
+  /** Penalty quests refund at most the XP the penalty took (never a net gain). */
+  refundCap?: number;
 }
 
 export interface LogResult {
@@ -113,25 +125,39 @@ export interface LogResult {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-/** Builds the log + profile change for an input, without writing anything. */
-async function computeEffects(input: LogInput, profile: Profile, formula: Formula, mode: PlayMode, excludeLogId?: number) {
+/**
+ * Builds the log + profile change for an input, without writing anything.
+ * `opts.level` pins the level used for scaling (editing an old log keeps its original level,
+ * so an old entry can't be re-valued at today's much bigger level scale).
+ */
+async function computeEffects(
+  input: LogInput,
+  profile: Profile,
+  formula: Formula,
+  mode: PlayMode,
+  opts: { excludeLogId?: number; level?: number } = {},
+) {
   const preset = await db.presets.get(input.presetId);
   if (!preset) throw new Error('Unknown preset');
   const cat = await db.categories.get(preset.categoryId);
-  const level = levelFromXp(profile.totalXp).level;
+  const level = opts.level ?? levelFromXp(profile.totalXp).level;
+  // Sanity limits: a typo can't pay out, and you can't log the far future.
+  const qty = Math.min(maxQtyFor(preset.unit), Math.max(0, Number.isFinite(input.qty) ? input.qty : 0));
+  const ts = Math.min(Number.isFinite(input.ts) ? input.ts : Date.now(), Date.now() + 5 * 60_000);
 
   const base = {
-    ts: input.ts,
+    ts,
     presetId: preset.id,
     categoryId: preset.categoryId,
     label: preset.name,
-    qty: input.qty,
+    qty,
     unit: preset.unit,
     intensity: input.intensity,
     isPenalty: preset.isPenalty,
     breaksStreak: false,
     note: input.note,
     demo: input.demo,
+    levelScale: levelScale(level),
   };
 
   if (preset.isPenalty) {
@@ -149,11 +175,11 @@ async function computeEffects(input: LogInput, profile: Profile, formula: Formul
     return { preset, entry };
   }
 
-  const prog = await loadProgressInputs(preset.id, preset.categoryId, excludeLogId);
+  const prog = await loadProgressInputs(preset.id, preset.categoryId, opts.excludeLogId, ts);
   const perf = preset.perf && input.perf && input.perf > 0
     ? performanceBonus(preset.perf.kind, input.perf, prog.perfValues, preset.perfStart)
     : { bonus: 0, pr: false };
-  const reward = computeReward(preset, input.qty, input.intensity, {
+  const reward = computeReward(preset, qty, input.intensity, {
     formula,
     level,
     rankRewardMult: rankInfoForLevel(level).rewardMult,
@@ -161,17 +187,17 @@ async function computeEffects(input: LogInput, profile: Profile, formula: Formul
     masteryBonus: masteryInfo(prog.categoryEffort).bonus,
     weights: presetWeights(preset, cat?.weights ?? {}),
   });
+  const refund = input.refundCap !== undefined;
   const entry: Omit<LogEntry, 'id'> = {
     ...base,
-    xp: reward.xp,
-    gold: reward.gold,
+    xp: refund ? Math.min(reward.xp, Math.max(0, input.refundCap!)) : reward.xp,
+    gold: refund ? 0 : reward.gold,
     hp: reward.hp,
     statGains: reward.statGains,
     perf: preset.perf ? input.perf : undefined,
     perfBonus: perf.bonus,
     pr: perf.pr,
     effortXp: reward.effortXp,
-    levelScale: reward.levelScale,
     masteryBonus: reward.masteryBonus,
   };
   return { preset, entry };
@@ -227,7 +253,7 @@ export async function updateLog(id: number, input: LogInput): Promise<void> {
     if (!old) return;
     const reverted = applyToProfile(await ensureProfile(), old, -1);
     const [formula, mode] = await Promise.all([getFormula(), getMode()]);
-    const { entry } = await computeEffects(input, reverted, formula, mode, id);
+    const { entry } = await computeEffects(input, reverted, formula, mode, { excludeLogId: id, level: old.levelScale ?? 1 });
     await db.logs.put({ ...(entry as LogEntry), id, demo: old.demo });
     await db.profile.put(applyToProfile(reverted, entry, 1));
   });

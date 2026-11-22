@@ -13,10 +13,12 @@ export const useCategories = () => useLiveQuery(() => db.categories.orderBy('ord
 export const usePresets = () => useLiveQuery(() => db.presets.toArray(), [], []);
 export const useFormula = (): Formula => useLiveQuery(getFormula, [], DEFAULT_FORMULA);
 export const useMode = (): PlayMode => useLiveQuery(() => getSetting<PlayMode>('mode', 'normal'), [], 'normal');
+export const useModeDay = () => useLiveQuery(() => getSetting<string | null>('modeDay', null), [], null);
 export const useRecentLogs = (n = 40) => useLiveQuery(() => db.logs.orderBy('ts').reverse().limit(n).toArray(), [n], []);
 
 export function useStreak(): number {
   return useLiveQuery(async () => {
+    await getSetting<number>('dayStartHour', 4); // re-run when the day-start setting changes
     const [logs, paused] = await Promise.all([db.logs.toArray(), getSetting<string[]>('pausedDays', [])]);
     return computeStreak(logs, new Set(paused), Date.now());
   }, [], 0);

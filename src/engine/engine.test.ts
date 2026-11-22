@@ -4,7 +4,7 @@ import { computePenalty, computeReward, DEFAULT_FORMULA, sanitizeFormula } from 
 import { applyXpDelta, freeStatPoints, levelFromXp, levelScale, xpAtLevelStart, xpToNext } from './levels';
 import { masteryInfo, performanceBonus } from './progress';
 import { rankInfoForLevel } from './ranks';
-import { computeStreak, dayKey } from './streak';
+import { computeStreak, dayKey, setDayStartHour } from './streak';
 
 const preset = (id: string) => DEFAULT_PRESETS.find((p) => p.id === id)!;
 const ctx = { formula: DEFAULT_FORMULA, rankRewardMult: 1, weights: { AGI: 1 } };
@@ -132,6 +132,32 @@ describe('progress bonuses', () => {
     expect(masteryInfo(150).level).toBe(1);
     expect(masteryInfo(600).bonus).toBeCloseTo(0.04, 5);
     expect(masteryInfo(10_000_000).bonus).toBe(0.3);
+  });
+});
+
+describe('long-term sustainability', () => {
+  it('has no practical level cap and level lookup stays exact', () => {
+    for (const L of [1, 2, 3, 50, 500, 5000]) {
+      expect(levelFromXp(xpAtLevelStart(L)).level).toBe(L);
+      expect(levelFromXp(xpAtLevelStart(L) + xpToNext(L) - 1).level).toBe(L);
+    }
+    expect(levelFromXp(xpAtLevelStart(1000) - 1).level).toBe(999);
+  });
+  it('treats an impossible improvement as a typo: no bonus, no record', () => {
+    const r = performanceBonus('pace', 2, [7, 7, 7]); // 3.5x faster
+    expect(r).toMatchObject({ bonus: 0, pr: false, suspicious: true });
+    expect(performanceBonus('higher', 200, [50, 50, 50]).suspicious).toBe(true);
+    expect(performanceBonus('pace', 4, [7, 7, 7]).suspicious).toBeFalsy(); // 75% faster is believable
+  });
+  it('a late night does not split into two days (day starts at 4 AM)', () => {
+    setDayStartHour(4);
+    const at = (d: number, h: number) => new Date(2026, 10, d, h, 0).getTime();
+    expect(dayKey(at(20, 1))).toBe('2026-11-19');
+    expect(dayKey(at(20, 5))).toBe('2026-11-20');
+    const log = (ts: number) => ({ ts, isPenalty: false, breaksStreak: false });
+    // activity at 23:00 on the 18th and 01:00 on the 20th = still the 19th's day -> streak of 2
+    expect(computeStreak([log(at(18, 23)), log(at(20, 1))], new Set(), at(20, 3))).toBe(2);
+    setDayStartHour(0);
   });
 });
 

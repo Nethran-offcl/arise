@@ -44,10 +44,13 @@ export function Celebration() {
               <>
                 <p className="sys-title">[ Optional Penalty Quest ]</p>
                 <p className="my-4 text-lg">{c.hint.text}</p>
-                <p className="mb-4 text-sm text-muted">No pressure. This is a small reset, not a punishment.</p>
+                <p className="mb-4 text-sm text-muted">
+                  No pressure. This is a small reset, not a punishment.
+                  {c.refund > 0 ? ` Completing it gives back the ${c.refund.toLocaleString()} XP you lost.` : ''}
+                </p>
                 {c.hint.presetId && (
                   <button className={`${btnPrimary} mb-2`} onClick={async () => {
-                    const r = await logActivity({ presetId: c.hint.presetId!, qty: c.hint.qty ?? 1, intensity: 'normal', ts: Date.now() });
+                    const r = await logActivity({ presetId: c.hint.presetId!, qty: c.hint.qty ?? 1, intensity: 'normal', ts: Date.now(), refundCap: c.refund, note: 'Penalty quest' });
                     next();
                     announce(r);
                   }}>I did it</button>

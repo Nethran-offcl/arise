@@ -1,4 +1,4 @@
-import type { Intensity, PlayMode, Preset, StatKey, Stats, Weights } from './types';
+import type { Intensity, PlayMode, Preset, StatKey, Stats, UnitKind, Weights } from './types';
 import { levelScale } from './levels';
 import { STAT_KEYS } from './types';
 
@@ -58,6 +58,9 @@ export function sanitizeFormula(f: Formula): Formula {
     maxGoldPerLog: clamp(f.maxGoldPerLog, 0, 5000),
   };
 }
+
+/** Largest believable amount for one log (stops typos like 5000 km from paying out). */
+export const maxQtyFor = (unit: UnitKind): number => ({ none: 1, count: 1000, minutes: 720, hours: 24, km: 250 })[unit];
 
 export function presetWeights(preset: Preset, categoryWeights: Weights): Weights {
   return preset.weights ?? categoryWeights;

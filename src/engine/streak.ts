@@ -1,6 +1,15 @@
-/** Local-time day key, e.g. "2026-11-22". */
+/**
+ * Your "day" starts at this hour (default 4 AM) so a late night doesn't split into two days
+ * and break your streak. Set from Settings at startup.
+ */
+let dayStartHour = 0;
+export function setDayStartHour(hour: number): void {
+  dayStartHour = Math.min(11, Math.max(0, Math.floor(Number.isFinite(hour) ? hour : 0)));
+}
+
+/** Local-time day key, e.g. "2026-11-22" (shifted by the day-start hour). */
 export function dayKey(ts: number): string {
-  const d = new Date(ts);
+  const d = new Date(ts - dayStartHour * 3_600_000);
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
@@ -9,6 +18,12 @@ export function dayKey(ts: number): string {
 function shiftDay(key: string, delta: number): string {
   const [y, m, d] = key.split('-').map(Number);
   return dayKey(new Date(y, m - 1, d + delta, 12).getTime());
+}
+
+/** Whole days from key `a` to key `b`. */
+export function daysBetween(a: string, b: string): number {
+  const n = (k: string) => { const [y, m, d] = k.split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86_400_000); };
+  return n(b) - n(a);
 }
 
 export interface StreakLog {

@@ -5,7 +5,7 @@ import { SystemWindow } from '../components/SystemWindow';
 import { CategoryForm } from '../components/CategoryForm';
 import { btnGhost, Sheet } from '../components/ui';
 import { db } from '../db/db';
-import type { Preset } from '../engine/types';
+import type { Category, Preset } from '../engine/types';
 import { useCategories, usePresets } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 
@@ -16,6 +16,7 @@ export default function Presets() {
   const say = useCelebrate((s) => s.say);
   const [editing, setEditing] = useState<Preset | 'new' | null>(null);
   const [newCat, setNewCat] = useState(false);
+  const [editCat, setEditCat] = useState<Category | null>(null);
 
   return (
     <div className="space-y-4">
@@ -33,6 +34,7 @@ export default function Presets() {
               </li>
             ))}
           </ul>
+          <button className="mt-2 text-sm text-accent" onClick={() => setEditCat(c)}>Edit category</button>
         </SystemWindow>
       ))}
 
@@ -53,6 +55,12 @@ export default function Presets() {
               }
             }}>Delete task</button>
           )}
+        </Sheet>
+      )}
+
+      {editCat && (
+        <Sheet title="Edit category" onClose={() => setEditCat(null)}>
+          <CategoryForm initial={editCat} onDone={() => setEditCat(null)} />
         </Sheet>
       )}
 

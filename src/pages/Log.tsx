@@ -3,7 +3,8 @@ import { CategoryForm } from '../components/CategoryForm';
 import { LogForm } from '../components/LogForm';
 import { PresetForm } from '../components/PresetForm';
 import { SystemWindow } from '../components/SystemWindow';
-import { Segmented, Sheet } from '../components/ui';
+import { btnGhost, Segmented, Sheet } from '../components/ui';
+import { deleteLog } from '../game/actions';
 import type { LogEntry } from '../db/db';
 import type { Preset } from '../engine/types';
 import { useCategories, usePresets, useRecentLogs } from '../hooks';
@@ -13,7 +14,8 @@ type Tab = 'task' | 'penalty';
 export default function Log() {
   const cats = useCategories();
   const presets = usePresets();
-  const logs = useRecentLogs(40);
+  const [limit, setLimit] = useState(40);
+  const logs = useRecentLogs(limit);
   const [tab, setTab] = useState<Tab>('task');
   const [catId, setCatId] = useState<string>('');
   const [active, setActive] = useState<Preset | null>(null);
@@ -77,6 +79,7 @@ export default function Log() {
             </li>
           ))}
         </ul>
+        {logs.length >= limit && <button className={`${btnGhost} mt-3 w-full`} onClick={() => setLimit(limit + 40)}>Show older logs</button>}
       </SystemWindow>
 
       {active && <Sheet title="Log" onClose={() => setActive(null)}><LogForm preset={active} onDone={() => setActive(null)} /></Sheet>}
@@ -84,7 +87,14 @@ export default function Log() {
         <Sheet title="Edit log" onClose={() => setEditing(null)}>
           {editingPreset
             ? <LogForm preset={editingPreset} existing={editing} onDone={() => setEditing(null)} />
-            : <p className="text-muted">The preset for this log was deleted, so it can only be removed from Settings &gt; Export later.</p>}
+            : (
+              <div className="space-y-3">
+                <p className="text-muted">The task "{editing.label}" was deleted, so this log can't be edited. You can still remove it.</p>
+                <button className={`${btnGhost} w-full text-red-300`} onClick={async () => {
+                  if (confirm('Delete this log? Its XP, gold and stat gains will be removed.')) { await deleteLog(editing.id!); setEditing(null); }
+                }}>Delete log</button>
+              </div>
+            )}
         </Sheet>
       )}
       {newCat && (

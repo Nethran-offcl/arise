@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../db/db';
 import { levelFromXp, xpAtLevelStart } from '../engine/levels';
-import { applyDailyRecovery, deleteLog, ensureSeed, logActivity, resetAllData, setHp, setMode, spendStatPoint, updateLog } from './actions';
+import { applyDailyRecovery, deleteLog, ensureSeed, expireRestMode, getMode, logActivity, resetAllData, setHp, setMode, spendStatPoint, updateLog } from './actions';
 import { setSetting } from '../db/db';
 import { seedDemo, wipeDemo } from './demo';
 
@@ -105,7 +105,9 @@ describe('XP scales with level', () => {
 });
 
 describe('progress bonuses', () => {
-  const run = (perf?: number) => logActivity({ ...base, presetId: 'run', perf });
+  // each run happens a little later than the last (results only compare with EARLIER ones)
+  let n = 0;
+  const run = (perf?: number) => logActivity({ ...base, ts: base.ts - 100_000 + n++ * 1000, presetId: 'run', perf });
 
   it('mastery makes a category pay more as you put effort in', async () => {
     expect((await run()).xp).toBe(100);
@@ -130,6 +132,65 @@ describe('progress bonuses', () => {
     const log = (await db.logs.get(fast.logId))!;
     expect(log.pr).toBe(false);
     expect(log.perfBonus).toBe(0);
+  });
+});
+
+describe('long-term sustainability', () => {
+  const DAY = 86_400_000;
+
+  it('editing an old log keeps its original level scale (no re-valuing at today\'s level)', async () => {
+    const r = await logActivity({ ...base, presetId: 'run' }); // level 1 -> 100 XP
+    await db.profile.update(1, { totalXp: xpAtLevelStart(50) });
+    await updateLog(r.logId, { ...base, presetId: 'run', note: 'fixed a typo in the note' });
+    const log = (await db.logs.get(r.logId))!;
+    expect(log.xp).toBe(100);
+    expect(log.levelScale).toBe(1);
+  });
+
+  it('clamps absurd quantities and far-future timestamps', async () => {
+    const r = await logActivity({ ...base, presetId: 'run', qty: 5000, ts: Date.now() + 10 * DAY });
+    const log = (await db.logs.get(r.logId))!;
+    expect(log.qty).toBe(250);
+    expect(log.ts).toBeLessThanOrEqual(Date.now() + 5 * 60_000 + 50);
+    expect(log.xp).toBe(1000); // effort capped
+  });
+
+  it('penalty quests only refund the XP the penalty took (never a net gain)', async () => {
+    await db.profile.update(1, { totalXp: 500 });
+    const pen = await logActivity({ ...base, presetId: 'p-skip-workout', qty: 1 });
+    expect(pen.xp).toBe(-8);
+    const quest = await logActivity({ ...base, presetId: 'bodyweight', qty: 20, refundCap: Math.abs(pen.xp) });
+    expect(quest.xp).toBe(8); // would have been 10 without the cap
+    expect(quest.gold).toBe(0);
+    expect((await db.profile.get(1))!.totalXp).toBe(500);
+  });
+
+  it('a Rest Day switches itself off the next day, Sick mode stays', async () => {
+    const t0 = Date.now();
+    await setMode('rest', t0);
+    await expireRestMode(t0);
+    expect(await getMode()).toBe('rest');
+    await expireRestMode(t0 + DAY);
+    expect(await getMode()).toBe('normal');
+    await setMode('sick', t0);
+    await expireRestMode(t0 + 3 * DAY);
+    expect(await getMode()).toBe('sick');
+  });
+
+  it('backdating an old run cannot steal a personal record', async () => {
+    let i = 0;
+    for (let k = 0; k < 3; k++) await logActivity({ ...base, ts: base.ts - 5000 + i++ * 1000, presetId: 'run', perf: 7 });
+    const old = await logActivity({ ...base, ts: base.ts - 100_000, presetId: 'run', perf: 5.5 });
+    expect(old.pr).toBe(false);
+    expect(old.perfBonus).toBe(0);
+  });
+
+  it('a typo result (3.5x faster) earns no bonus and no record', async () => {
+    let i = 0;
+    for (let k = 0; k < 3; k++) await logActivity({ ...base, ts: base.ts - 5000 + i++ * 1000, presetId: 'run', perf: 7 });
+    const typo = await logActivity({ ...base, presetId: 'run', perf: 2 });
+    expect(typo.pr).toBe(false);
+    expect(typo.perfBonus).toBe(0);
   });
 });
 

@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useMemo, useState } from 'react';
 import type { LogEntry } from '../db/db';
-import { computePenalty, computeReward, presetWeights } from '../engine/formula';
+import { computePenalty, computeReward, maxQtyFor, presetWeights } from '../engine/formula';
 import { levelScale } from '../engine/levels';
 import { masteryInfo, performanceBonus } from '../engine/progress';
 import { rankInfoForLevel } from '../engine/ranks';
@@ -43,9 +43,11 @@ export function LogForm({ preset, existing, onDone }: Props) {
   // Progress tracking: pace presets ask for total minutes; others ask for a number directly.
   const initialPerf = existing?.perf ? String(preset.perf?.kind === 'pace' ? Math.round(existing.perf * existing.qty * 10) / 10 : existing.perf) : '';
   const [perfInput, setPerfInput] = useState(initialPerf);
-  const prog = useLiveQuery(() => loadProgressInputs(preset.id, preset.categoryId, existing?.id), [preset.id, preset.categoryId, existing?.id]);
+  const whenTs = new Date(when).getTime() || Date.now();
+  const prog = useLiveQuery(() => loadProgressInputs(preset.id, preset.categoryId, existing?.id, whenTs), [preset.id, preset.categoryId, existing?.id, whenTs]);
 
-  const q = Math.max(0, Number(qty) || 0);
+  const maxQ = maxQtyFor(preset.unit);
+  const q = Math.min(maxQ, Math.max(0, Number(qty) || 0));
   const hasQty = preset.unit !== 'none';
   const perfNum = Number(perfInput) || 0;
   // Pace = minutes per km; everything else is used as typed.
@@ -61,7 +63,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
     const cat = cats.find((c) => c.id === preset.categoryId);
     const perf = preset.perf && perfValue
       ? performanceBonus(preset.perf.kind, perfValue, prog?.perfValues ?? [], preset.perfStart)
-      : { bonus: 0, pr: false };
+      : { bonus: 0, pr: false, suspicious: false };
     const mastery = masteryInfo(prog?.categoryEffort ?? 0);
     const r = computeReward(preset, q, intensity, {
       formula,
@@ -77,7 +79,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
     if (mastery.bonus > 0) parts.push(`mastery +${Math.round(mastery.bonus * 100)}%`);
     return {
       main: `${perf.pr ? '🏆 NEW RECORD · ' : ''}+${r.xp.toLocaleString()} XP · +${r.gold} gold${stats ? ' · ' + stats : ''}${r.hp ? ` · HP ${r.hp > 0 ? '+' : ''}${r.hp}` : ''}`,
-      detail: `${r.effortXp} for your effort · ${parts.join(' · ')}`,
+      detail: `${r.effortXp} for your effort · ${parts.join(' · ')}${perf.suspicious ? ' · ⚠ That result looks too good to be true, so no progress bonus. Check for a typo.' : ''}`,
     };
   }, [preset, q, intensity, formula, mode, cats, progress?.level, perfValue, prog]);
 
@@ -104,6 +106,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
         <Field label={`Amount (${UNIT_LABEL[preset.unit]})`}>
           <input className={inputCls} type="number" inputMode="decimal" min={0} step={preset.unit === 'km' || preset.unit === 'hours' ? 0.1 : 1}
             value={qty} onChange={(e) => setQty(e.target.value)} />
+          {Number(qty) > maxQ && <span className="mt-1 block text-xs text-red-300">Max {maxQ} per log. Counted as {maxQ}.</span>}
         </Field>
       )}
       {!preset.isPenalty && (

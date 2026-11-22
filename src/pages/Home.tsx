@@ -4,7 +4,8 @@ import { Bar, btnPrimary, Segmented } from '../components/ui';
 import { SystemWindow } from '../components/SystemWindow';
 import { rankInfoForLevel, RANKS } from '../engine/ranks';
 import { setHp, setMode } from '../game/actions';
-import { useMode, useProgress, useRecentLogs, useStreak } from '../hooks';
+import { dayKey, daysBetween } from '../engine/streak';
+import { useMode, useModeDay, useProgress, useRecentLogs, useStreak } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 
 const MODE_TEXT = {
@@ -17,6 +18,7 @@ export default function Home() {
   const p = useProgress();
   const mode = useMode();
   const streak = useStreak();
+  const modeDay = useModeDay();
   const recent = useRecentLogs(3);
   const say = useCelebrate((s) => s.say);
 
@@ -56,7 +58,15 @@ export default function Home() {
         </SystemWindow>
       </motion.div>
 
-      {mode !== 'normal' && <p className="sys-window p-3 text-sm text-accent" role="status">[SYSTEM] {MODE_TEXT[mode]}</p>}
+      {mode !== 'normal' && (
+        <p className="sys-window p-3 text-sm text-accent" role="status">
+          [SYSTEM] {MODE_TEXT[mode]}
+          {mode === 'sick' && modeDay && (() => {
+            const n = daysBetween(modeDay, dayKey(Date.now())) + 1;
+            return ` Day ${n}.${n > 7 ? ' Feeling better? Switch back to Normal when you are ready.' : ''}`;
+          })()}
+        </p>
+      )}
 
       <SystemWindow title="Today">
         <Link to="/log" className={`${btnPrimary} flex items-center justify-center`}>＋ Log a task</Link>

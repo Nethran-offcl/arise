@@ -102,6 +102,19 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
 }
 export const setSetting = (key: string, value: unknown) => db.settings.put({ key, value });
 
+/**
+ * Asks the browser to never auto-delete our data when storage runs low.
+ * Returns whether storage is now persistent (installed PWAs usually get it).
+ */
+export async function requestPersistence(): Promise<boolean> {
+  try {
+    if (!navigator.storage?.persist) return false;
+    return (await navigator.storage.persisted()) || (await navigator.storage.persist());
+  } catch {
+    return false;
+  }
+}
+
 export const newProfile = (): Profile => ({
   id: 1,
   name: 'Player',

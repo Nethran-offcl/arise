@@ -5,7 +5,7 @@ import type { PenaltyQuestHint } from '../engine/types';
 export type Celebration =
   | { kind: 'level'; level: number; points: number }
   | { kind: 'rank'; rank: string }
-  | { kind: 'penaltyQuest'; hint: PenaltyQuestHint };
+  | { kind: 'penaltyQuest'; hint: PenaltyQuestHint; refund: number };
 
 interface State {
   queue: Celebration[];
@@ -37,7 +37,7 @@ export const useCelebrate = create<State>((set, get) => ({
           ? '[SYSTEM] Rest/Sick mode is active. Penalty paused, no effect applied.'
           : `[SYSTEM] Course correction noted: ${r.xp} XP, ${r.hp} HP. Tomorrow is a new day.`,
       );
-      if (r.penaltyQuest) push({ kind: 'penaltyQuest', hint: r.penaltyQuest });
+      if (r.penaltyQuest) push({ kind: 'penaltyQuest', hint: r.penaltyQuest, refund: Math.abs(r.xp) });
       return;
     }
     const gains = Object.entries(r.statGains)

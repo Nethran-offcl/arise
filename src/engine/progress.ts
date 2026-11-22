@@ -25,6 +25,8 @@ export const PR_BONUS = 0.15;
 export const PERF_TOTAL_CAP = 0.9;
 /** Your "starting level" = the average of your first 3 results (or a number you set). */
 export const BASELINE_SAMPLES = 3;
+/** A result more than 2x better than your baseline / best is treated as a typo and not rewarded. */
+export const PERF_SANITY_RATIO = 2;
 
 export const MASTERY_STEP = 150; // effort XP scale for mastery levels
 export const MASTERY_PER_LEVEL = 0.02;
@@ -42,6 +44,8 @@ export interface PerfResult {
   bonus: number;
   pr: boolean;
   baseline?: number;
+  /** True when the result looks like a typo (more than 2x better than before). Nothing is awarded. */
+  suspicious?: boolean;
 }
 
 /**
@@ -52,11 +56,13 @@ export interface PerfResult {
 export function performanceBonus(kind: PerfKind, value: number, previous: number[], manualStart?: number): PerfResult {
   if (!(value > 0)) return { bonus: 0, pr: false };
   const baseline = manualStart && manualStart > 0 ? manualStart : previous.length >= BASELINE_SAMPLES ? mean(previous.slice(0, BASELINE_SAMPLES)) : undefined;
-  let bonus = 0;
-  if (baseline) {
-    const ratio = kind === 'higher' ? value / baseline : baseline / value;
-    bonus = clamp((ratio - 1) * PERF_GAIN, 0, PERF_CAP);
+  const ratioVs = (ref: number) => (kind === 'higher' ? value / ref : ref / value);
+  const bestPrevious = previous.length ? (kind === 'higher' ? Math.max(...previous) : Math.min(...previous)) : undefined;
+  if ((baseline && ratioVs(baseline) > PERF_SANITY_RATIO) || (bestPrevious && ratioVs(bestPrevious) > PERF_SANITY_RATIO)) {
+    return { bonus: 0, pr: false, baseline, suspicious: true };
   }
+  let bonus = 0;
+  if (baseline) bonus = clamp((ratioVs(baseline) - 1) * PERF_GAIN, 0, PERF_CAP);
   const pr = previous.length >= 1 && previous.every((p) => isBetter(kind, value, p));
   return { bonus: Math.min(PERF_TOTAL_CAP, bonus + (pr ? PR_BONUS : 0)), pr, baseline };
 }

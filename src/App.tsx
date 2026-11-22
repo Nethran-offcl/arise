@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import { BottomNav } from './components/BottomNav';
 import { Celebration } from './components/Celebration';
+import { requestPersistence } from './db/db';
 import { ensureSeed } from './game/actions';
 import Home from './pages/Home';
 import Log from './pages/Log';
@@ -19,6 +20,7 @@ export default function App() {
   useEffect(() => {
     void init();
     void ensureSeed(); // first launch: creates the Player and the starter presets
+    void requestPersistence(); // ask Chrome not to auto-delete our data
   }, [init]);
 
   return (
