@@ -5,7 +5,7 @@ import { computeReward, presetWeights } from '../engine/formula';
 import { rankInfoForLevel } from '../engine/ranks';
 import { dayKey } from '../engine/streak';
 import { deleteLog, logActivity, updateLog } from '../game/actions';
-import { getSleepTargets, SLEEP_ON_TIME_GRACE_MIN, sleepOnTime, sleepWindow } from '../game/sleep';
+import { DEFAULT_SLEEP_GOAL, getSleepGoal, getSleepTargets, SLEEP_ON_TIME_GRACE_MIN, sleepOnTime, sleepWindow } from '../game/sleep';
 import { useCategories, useFormula, usePresets, useProgress } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 import { btnGhost, btnPrimary, Field, inputCls } from './ui';
@@ -17,6 +17,7 @@ const localTime = (ts: number) => { const d = new Date(ts); return `${pad(d.getH
 /** Log last night's sleep by bedtime and wake time. Hours are worked out for you. */
 export function SleepForm({ existing, onDone }: { existing?: LogEntry; onDone: () => void }) {
   const targets = useLiveQuery(getSleepTargets, [], undefined);
+  const goal = useLiveQuery(getSleepGoal, [], DEFAULT_SLEEP_GOAL);
   const formula = useFormula();
   const cats = useCategories();
   const presets = usePresets();
@@ -100,6 +101,7 @@ export function SleepForm({ existing, onDone }: { existing?: LogEntry; onDone: (
           {valid ? `${Math.floor(win.hours)} h ${Math.round((win.hours % 1) * 60)} min of sleep` : future ? 'That wake time is still in the future. Pick the day and time you actually woke up.' : 'That does not look right: check the times (0.5 to 16 hours).'}
         </p>
         {valid && <p className="mt-1 text-xs text-muted">{preview}</p>}
+        {valid && <p className="mt-1 text-xs text-muted">{win.hours < goal.min ? `Below your ${goal.min}-${goal.max} h goal.` : win.hours <= goal.max + 0.01 ? `✓ Within your ${goal.min}-${goal.max} h goal.` : `Above your ${goal.min}-${goal.max} h goal. Fine now and then.`}</p>}
         {valid && targets && <p className="mt-1 text-xs text-muted">{onTime ? `✓ Bedtime on time (target ${targets.bed}, ${SLEEP_ON_TIME_GRACE_MIN} min grace): you also get the Slept on time bonus.` : `Bedtime target is ${targets.bed}. Change it in Settings.`}</p>}
       </div>
       {sameDay > 0 && !existing && (

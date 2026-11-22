@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { SystemWindow } from '../components/SystemWindow';
-import { sleepReport } from '../engine/system';
+import { sleepGoalLabel, sleepReport } from '../engine/system';
 import { useSnapshot } from '../hooks';
 
 const fmtBed = (m: number | null) => {
@@ -29,10 +29,10 @@ export default function SleepPage() {
       <Link to="/profile" className="inline-block text-accent">← Back</Link>
       <SystemWindow title="Sleep · last 14 days">
         <div className="grid grid-cols-2 gap-2">
-          {card('Average', r.avg !== null ? `${r.avg.toFixed(1)} h` : '–', `Target ${r.target.toFixed(0)} h`)}
-          {card('Sleep debt', `${r.debt.toFixed(1)} h`, 'Hours short of target')}
+          {card('Average', r.avg !== null ? `${r.avg.toFixed(1)} h` : '–', `Goal ${sleepGoalLabel({ sleepTargetHours: r.target, sleepTargetMaxHours: r.targetMax })}`)}
+          {card('Sleep debt', `${r.debt.toFixed(1)} h`, `Hours below ${r.target} h`)}
           {card('Consistency', r.consistency !== null ? `${r.consistency}/100` : '–', r.consistency !== null ? 'How steady your bedtime is' : 'Needs 3 nights with a bedtime')}
-          {card('Good nights', `${r.goodNights}`, '7 hours or more')}
+          {card('Good nights', `${r.goodNights}`, `${Math.min(7, r.target)} hours or more`)}
         </div>
         <Link to="/log" className="mt-3 block text-sm text-accent">＋ Log last night's sleep (Log tab)</Link>
       </SystemWindow>
@@ -42,16 +42,16 @@ export default function SleepPage() {
         {bars.length > 0 && (
           <>
             <div className="relative flex h-36 items-end gap-1" role="img" aria-label={'Hours slept: ' + bars.map((b) => b.hours.toFixed(1)).join(', ')}>
-              <div className="absolute inset-x-0 border-t border-dashed border-accent/60" style={{ bottom: `${(r.target / 12) * 100}%` }} aria-hidden />
+              <div className="absolute inset-x-0 border-y border-dashed border-accent/60 bg-accent/10" style={{ bottom: `${(r.target / 12) * 100}%`, height: `${(((r.targetMax ?? r.target) - r.target) / 12) * 100}%`, minHeight: 2 }} aria-hidden />
               {bars.map((b) => (
                 <div key={b.day} className="flex flex-1 flex-col items-center justify-end">
                   <span className="mb-0.5 text-[10px] text-muted">{b.hours.toFixed(1)}</span>
-                  <div className={`w-full rounded-t ${b.hours >= 7 ? 'bg-accent' : 'bg-red-400/70'}`} style={{ height: `${Math.min(100, (b.hours / 12) * 100)}%` }} />
+                  <div className={`w-full rounded-t ${b.hours >= r.target ? 'bg-accent' : 'bg-red-400/70'}`} style={{ height: `${Math.min(100, (b.hours / 12) * 100)}%` }} />
                 </div>
               ))}
             </div>
             <div className="mt-1 flex gap-1 text-[10px] text-muted">{bars.map((b) => <span key={b.day} className="flex-1 text-center">{b.day.slice(8)}</span>)}</div>
-            <p className="mt-2 text-xs text-muted">Dashed line = your {r.target.toFixed(0)} h target. Blue bars are 7 hours or more.</p>
+            <p className="mt-2 text-xs text-muted">The shaded band is your {sleepGoalLabel({ sleepTargetHours: r.target, sleepTargetMaxHours: r.targetMax })} goal. Blue bars reach at least {r.target} h.</p>
             <ul className="mt-3 divide-y divide-line text-sm">
               {[...bars].reverse().slice(0, 7).map((b) => (
                 <li key={b.day} className="flex justify-between py-1"><span>{b.day}</span><span className="text-muted">{b.hours.toFixed(1)} h{b.bedMinutes !== null ? ` · bed ${fmtBed(b.bedMinutes)}` : ''}</span></li>

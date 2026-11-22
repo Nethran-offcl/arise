@@ -27,7 +27,8 @@ describe('the engine reads your real data', () => {
     expect(s.streak).toBe(1);
     expect(s.mode).toBe('normal');
     expect(s.categoryNames.cardio).toBe('Cardio & Sports');
-    expect(s.sleepTargetHours).toBe(8);
+    expect(s.sleepTargetHours).toBe(7); // goal is 7-8 h
+    expect(s.sleepTargetMaxHours).toBe(8);
     expect(s.logs.some((l) => l.presetId === 'walk')).toBe(true);
   });
 

@@ -66,7 +66,10 @@ export interface Snapshot {
   streak: number;
   exam: ExamState;
   deadlines: Deadline[];
+  /** The LOW end of your sleep goal in hours (7 by default). Sleep debt counts only the hours below it. */
   sleepTargetHours: number;
+  /** The high end of the goal (8 by default). Shown as part of the goal, e.g. "7-8 h". */
+  sleepTargetMaxHours?: number;
   /** User set "take a gentle day" for today. */
   forceGentle: boolean;
   categoryNames: Record<string, string>;
@@ -376,6 +379,11 @@ export interface Insight {
   priority: number;
 }
 
+const hrs = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+/** "7-8 h" (or "7 h" when there is no upper end). */
+export const sleepGoalLabel = (s: Pick<Snapshot, 'sleepTargetHours' | 'sleepTargetMaxHours'>): string =>
+  s.sleepTargetMaxHours && s.sleepTargetMaxHours > s.sleepTargetHours ? `${hrs(s.sleepTargetHours)}-${hrs(s.sleepTargetMaxHours)} h` : `${hrs(s.sleepTargetHours)} h`;
+
 const TONE_ORDER = { warn: 0, info: 1, good: 2 } as const;
 
 const dayName = (key: string) => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, Number(key.slice(8, 10)), 12).getDay()];
@@ -424,7 +432,7 @@ export function generateInsights(snap: Snapshot, windowDays: 7 | 14 | 30 = 7): I
   }
 
   if (cur.sleepDays >= 3 && cur.avgSleep !== null) {
-    if (cur.avgSleep < 7) add({ id: 'sleep-low', tone: 'warn', title: 'Sleep is running short', text: `You averaged ${cur.avgSleep.toFixed(1)} h ${label}, about ${cur.sleepDebt.toFixed(1)} h under your ${snap.sleepTargetHours.toFixed(0)} h target. Aim for an earlier bedtime tonight.`, priority: 85 });
+    if (cur.avgSleep < snap.sleepTargetHours) add({ id: 'sleep-low', tone: 'warn', title: 'Sleep is running short', text: `You averaged ${cur.avgSleep.toFixed(1)} h ${label}, ${cur.sleepDebt.toFixed(1)} h below your ${sleepGoalLabel(snap)} goal in total. Aim for an earlier bedtime tonight.`, priority: 85 });
     else add({ id: 'sleep-good', tone: 'good', title: 'Solid sleep', text: `Averaging ${cur.avgSleep.toFixed(1)} h ${label}. Sleep is where your progress is built.`, priority: 35 });
   }
   if (cur.bedtimeSpread !== null && cur.bedtimeSpread > 90) {
@@ -509,7 +517,7 @@ export function buildWeeklyReview(snap: Snapshot, weekKey: string, questStats: Q
   if (w.runKm > 0) wins.push(`Ran ${w.runKm.toFixed(1)} km across ${w.runs} run${w.runs === 1 ? '' : 's'}.`);
   const prs = snap.logs.filter((l) => l.pr && days(weekKey).includes(dayKey(l.ts)));
   if (prs.length) wins.push(`New personal record: ${[...new Set(prs.map((x) => x.label))].join(', ')}.`);
-  if (w.avgSleep !== null && w.avgSleep >= 7) wins.push(`Slept ${w.avgSleep.toFixed(1)} h on average.`);
+  if (w.avgSleep !== null && w.avgSleep >= snap.sleepTargetHours) wins.push(`Slept ${w.avgSleep.toFixed(1)} h on average.`);
   if (w.waterTracked >= 2 && w.waterGoalDays >= 4) wins.push(`Hit ${WATER_GOAL_L} L of water on ${w.waterGoalDays} days.`);
   if (questStats.bossDefeated) wins.push(`Defeated ${questStats.bossName ?? 'the weekly boss'}.`);
   if (questStats.completed >= 5) wins.push(`Completed ${questStats.completed} quests.`);
@@ -517,7 +525,7 @@ export function buildWeeklyReview(snap: Snapshot, weekKey: string, questStats: Q
   if (!wins.length) wins.push('You showed up and kept the System alive. That counts.');
 
   if (w.activeDays <= 3 && w.restDays < 3) weak.push(`Only ${w.activeDays} active day(s). Smaller daily targets could help.`);
-  if (w.avgSleep !== null && w.avgSleep < 7) weak.push(`Sleep averaged ${w.avgSleep.toFixed(1)} h, under your ${snap.sleepTargetHours.toFixed(0)} h target.`);
+  if (w.avgSleep !== null && w.avgSleep < snap.sleepTargetHours) weak.push(`Sleep averaged ${w.avgSleep.toFixed(1)} h, under your ${sleepGoalLabel(snap)} goal.`);
   if (w.waterTracked >= 2 && w.waterGoalDays < w.waterTracked / 2) weak.push(`Water goal met on ${w.waterGoalDays} of ${w.waterTracked} logged days.`);
   if (w.penalties >= 3) weak.push(`${w.penalties} course corrections: look at when they happen and plan around it.`);
   for (const id of Object.keys(p.byCategory)) {
@@ -529,7 +537,7 @@ export function buildWeeklyReview(snap: Snapshot, weekKey: string, questStats: Q
   const budget = Math.max(w.runKm * (1 + MAX_WEEKLY_RUN_INCREASE), MIN_WEEKLY_RUN_BUDGET_KM);
   if (w.runKm > 0 || w.runs > 0) plan.push(`Running: up to ${budget.toFixed(1)} km next week, at most 10% above this week's ${w.runKm.toFixed(1)} km.`);
   if (w.hardDays >= 4) plan.push('You had many hard days. Schedule two easy or rest days.');
-  if (w.avgSleep !== null && w.avgSleep < 7) plan.push('Protect an earlier bedtime on weeknights.');
+  if (w.avgSleep !== null && w.avgSleep < snap.sleepTargetHours) plan.push('Protect an earlier bedtime on weeknights.');
   const neglected = Object.keys(p.byCategory).find((id) => id !== 'penalty' && id !== 'core' && !w.byCategory[id]);
   if (neglected) plan.push(`Bring ${cat(neglected)} back with one short session.`);
   const exam = examPressure(shiftDay(weekKey, 7), snap.exam, snap.deadlines);
@@ -552,13 +560,16 @@ export function buildWeeklyReview(snap: Snapshot, weekKey: string, questStats: Q
 export interface SleepReport {
   nights: { day: string; hours: number; bedMinutes: number | null }[];
   avg: number | null;
-  /** Hours short of your target, added up over the window. */
+  /** Hours below the low end of your goal, added up over the window. */
   debt: number;
   /** 0 to 100: how steady your bedtime is (100 = same time every night). Null until 3 nights have a bedtime. */
   consistency: number | null;
-  /** Nights with 7 hours or more. */
+  /** Nights with 7 hours or more (or your goal's low end if that is lower). */
   goodNights: number;
+  /** Low end of your sleep goal. */
   target: number;
+  /** High end of your sleep goal (if set). */
+  targetMax?: number;
 }
 
 /** Sleep tracker numbers for the last `n` days: average, sleep debt and how regular your bedtime is. */
@@ -571,7 +582,8 @@ export function sleepReport(snap: Snapshot, n = 14): SleepReport {
     avg: w.avgSleep,
     debt: w.sleepDebt,
     consistency: w.bedtimeSpread === null ? null : Math.max(0, Math.round(100 - w.bedtimeSpread / 1.2)),
-    goodNights: nights.filter((x) => x.hours >= 7).length,
+    goodNights: nights.filter((x) => x.hours >= Math.min(7, snap.sleepTargetHours)).length,
     target: snap.sleepTargetHours,
+    targetMax: snap.sleepTargetMaxHours,
   };
 }

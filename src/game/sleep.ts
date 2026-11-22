@@ -8,6 +8,23 @@ export interface SleepTargets {
 }
 
 export const DEFAULT_SLEEP_TARGETS: SleepTargets = { bed: '23:00', wake: '07:00' };
+/** How many hours of sleep you are aiming for each night: a range, not a single number. */
+export interface SleepGoal {
+  min: number;
+  max: number;
+}
+export const DEFAULT_SLEEP_GOAL: SleepGoal = { min: 7, max: 8 };
+
+/** Keeps the goal sensible: 4 to 12 hours, and the top never below the bottom. */
+export function sanitizeSleepGoal(g: Partial<SleepGoal>): SleepGoal {
+  const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : lo));
+  const min = clamp(g.min ?? DEFAULT_SLEEP_GOAL.min, 4, 11);
+  return { min, max: clamp(g.max ?? DEFAULT_SLEEP_GOAL.max, min, 12) };
+}
+
+export const getSleepGoal = async (): Promise<SleepGoal> => sanitizeSleepGoal(await getSetting<Partial<SleepGoal>>('sleepGoal', {}));
+export const setSleepGoal = (g: Partial<SleepGoal>) => setSetting('sleepGoal', sanitizeSleepGoal(g));
+
 /** Going to bed this many minutes after your target still counts as "on time". */
 export const SLEEP_ON_TIME_GRACE_MIN = 30;
 

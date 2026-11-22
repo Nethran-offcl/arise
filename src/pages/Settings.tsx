@@ -12,7 +12,7 @@ import { ExamSettings } from '../components/ExamSettings';
 import { downloadBackup, restoreBackup, shareBackup } from '../game/backup';
 import { DAY_NAMES, getSchedule, setSchedule, type DayFlags } from '../game/schedule';
 import { dailyTick } from '../game/startup';
-import { getSleepTargets, setSleepTargets } from '../game/sleep';
+import { DEFAULT_SLEEP_GOAL, getSleepGoal, getSleepTargets, setSleepGoal, setSleepTargets } from '../game/sleep';
 import { getSfxPrefs, play, saveSfxPrefs } from '../lib/sfx';
 import { useFormula } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
@@ -27,6 +27,7 @@ export default function Settings() {
   const sfx = useLiveQuery(async () => ({ ...getSfxPrefs(), ...(await getSetting<Partial<{ sound: boolean; haptics: boolean }>>('sfx', {})) }), [], getSfxPrefs());
   const ritual = useLiveQuery(() => getSetting<boolean>('ritualEnabled', true), [], true);
   const sleepTargets = useLiveQuery(getSleepTargets, [], undefined);
+  const sleepGoal = useLiveQuery(getSleepGoal, [], DEFAULT_SLEEP_GOAL);
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [usedMb, setUsedMb] = useState<string>('');
   useEffect(() => {
@@ -104,6 +105,12 @@ export default function Settings() {
 
       <SystemWindow title="Sleep schedule">
         <p className="mb-2 text-sm text-muted">Your ideal bedtime and wake time. Going to bed within 30 minutes of your bedtime gives the "Slept on time" bonus automatically when you log sleep.</p>
+        <p className="mb-1 text-xs uppercase tracking-wider text-muted">Sleep goal (hours per night)</p>
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <Field label="At least"><input className={inputCls} type="number" inputMode="decimal" min={4} max={11} step={0.5} value={sleepGoal.min} onChange={(e) => void setSleepGoal({ ...sleepGoal, min: Number(e.target.value) })} /></Field>
+          <Field label="Up to"><input className={inputCls} type="number" inputMode="decimal" min={4} max={12} step={0.5} value={sleepGoal.max} onChange={(e) => void setSleepGoal({ ...sleepGoal, max: Number(e.target.value) })} /></Field>
+        </div>
+        <p className="mb-3 -mt-2 text-xs text-muted">Sleep debt only counts nights below the low end, so {sleepGoal.min}-{sleepGoal.max} hours is a healthy night.</p>
         {sleepTargets && (
           <div className="grid grid-cols-2 gap-2">
             <Field label="Bedtime"><input className={inputCls} type="time" value={sleepTargets.bed} onChange={(e) => e.target.value && void setSleepTargets({ ...sleepTargets, bed: e.target.value })} /></Field>

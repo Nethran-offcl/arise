@@ -2,7 +2,7 @@ import { db, getSetting, setSetting, type LogEntry } from '../db/db';
 import { computeStreak, dayKey, dayStartTs, shiftDay, weekStartKey } from '../engine/streak';
 import { buildWeeklyReview, type Deadline, type ExamState, type QuestStats, type Snapshot, type SysLog, type WeeklyReview } from '../engine/system';
 import type { PlayMode } from '../engine/types';
-import { getSleepTargets } from './sleep';
+import { getSleepGoal } from './sleep';
 
 const DAY = 86_400_000;
 
@@ -37,7 +37,7 @@ const toSysLog = (l: LogEntry): SysLog => ({
 
 /** Reads what the System engine needs from the database (a compact picture of the last 60 days plus settings). */
 export async function loadSnapshot(now = Date.now()): Promise<Snapshot> {
-  const [logs, profile, mode, paused, exam, deadlines, gentleDay, sleepT, cats, journal] = await Promise.all([
+  const [logs, profile, mode, paused, exam, deadlines, gentleDay, sleepGoal, cats, journal] = await Promise.all([
     db.logs.where('ts').above(now - 366 * DAY).toArray(),
     db.profile.get(1),
     getSetting<PlayMode>('mode', 'normal'),
@@ -45,15 +45,12 @@ export async function loadSnapshot(now = Date.now()): Promise<Snapshot> {
     getExam(),
     getDeadlines(),
     getSetting<string | null>('gentleDay', null),
-    getSleepTargets(),
+    getSleepGoal(),
     db.categories.toArray(),
     db.journal.where('ts').above(now - 21 * DAY).toArray(),
   ]);
   const pausedSet = new Set(paused);
   const today = dayKey(now);
-  const [bh, bm] = sleepT.bed.split(':').map(Number);
-  const [wh, wm] = sleepT.wake.split(':').map(Number);
-  const diff = ((wh * 60 + wm) - (bh * 60 + bm) + 1440) % 1440;
   return {
     today,
     logs: logs.filter((l) => l.ts >= now - 60 * DAY).map(toSysLog),
@@ -63,7 +60,8 @@ export async function loadSnapshot(now = Date.now()): Promise<Snapshot> {
     streak: computeStreak(logs, pausedSet, now),
     exam,
     deadlines,
-    sleepTargetHours: diff / 60 || 8,
+    sleepTargetHours: sleepGoal.min,
+    sleepTargetMaxHours: sleepGoal.max,
     forceGentle: gentleDay === today,
     categoryNames: Object.fromEntries(cats.map((c) => [c.id, c.name])),
     journal: journal.map((j) => ({ day: j.id, mood: j.mood, energy: j.energy })),
