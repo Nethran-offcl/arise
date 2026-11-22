@@ -20,7 +20,7 @@ export const toQuestLog = (l: LogEntry): QuestLog => ({
 });
 
 /** Every table a quest operation may touch (for atomic transactions). */
-export const questTables = () => [db.quests, db.questTemplates, db.profile, db.logs, db.settings, db.presets, db.categories, db.inventory];
+export const questTables = () => [db.quests, db.questTemplates, db.profile, db.logs, db.settings, db.presets, db.categories, db.inventory, db.journal, db.shadows];
 
 /** How many of the days in [start, end) were Rest/Sick/protected days. */
 export function pausedCountInRange(paused: Set<string>, start: number, end: number): number {
@@ -78,6 +78,9 @@ export async function evaluateQuests(now = Date.now()): Promise<QuestCompletion[
   if (done.length) {
     await db.profile.put(p);
     await setSetting('questsCompletedTotal', (await getSetting<number>('questsCompletedTotal', 0)) + done.filter((d) => d.kind !== 'bonus').length);
+    const bosses = done.filter((d) => d.kind === 'boss').length;
+    if (bosses) await setSetting('bossesDefeatedTotal', (await getSetting<number>('bossesDefeatedTotal', 0)) + bosses);
+    if (done.some((d) => d.kind === 'bonus')) await setSetting('dailySetsCleared', (await getSetting<number>('dailySetsCleared', 0)) + 1);
   }
   return done;
 }

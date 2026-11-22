@@ -49,6 +49,13 @@ export interface Deadline {
   date: string;
 }
 
+/** One day's journal ratings (1 = low, 5 = high). Only the numbers reach the engine, never the text. */
+export interface JournalDay {
+  day: string;
+  mood: number;
+  energy: number;
+}
+
 export interface Snapshot {
   today: string;
   logs: SysLog[];
@@ -63,6 +70,8 @@ export interface Snapshot {
   /** User set "take a gentle day" for today. */
   forceGentle: boolean;
   categoryNames: Record<string, string>;
+  /** Recent journal ratings (optional). */
+  journal?: JournalDay[];
 }
 
 // ---------- day and window statistics ----------
@@ -220,6 +229,13 @@ export function assessBurnout(snap: Snapshot): BurnoutResult {
   if (hs >= 3) { score += 1; reasons.push(`${hs} hard days in a row.`); }
   if (snap.energy < 30) { score += 2; reasons.push('Your energy is very low.'); }
   else if (snap.energy < 50) { score += 1; reasons.push('Your energy is low.'); }
+  // How you say you feel counts too
+  const recentJ = (snap.journal ?? []).filter((j) => j.day >= shiftDay(snap.today, -6)).sort((a, b) => a.day.localeCompare(b.day)).slice(-3);
+  if (recentJ.length >= 2) {
+    const avgEnergy = recentJ.reduce((a, j) => a + j.energy, 0) / recentJ.length;
+    if (avgEnergy <= 2) { score += 2; reasons.push('Your own energy ratings have been low.'); }
+    else if (avgEnergy <= 2.7) { score += 1; reasons.push('Your energy ratings are on the low side.'); }
+  }
   const recentRest = dayStats(snap, 14).some((d) => d.paused || !d.active);
   if (!recentRest) { score += 1; reasons.push('No rest day in the last two weeks.'); }
 
@@ -444,6 +460,13 @@ export function generateInsights(snap: Snapshot, windowDays: 7 | 14 | 30 = 7): I
   const prs = snap.logs.filter((l) => l.pr && dayKey(l.ts) >= all[windowDays].day);
   if (prs.length) add({ id: 'pr', tone: 'good', title: 'New personal record', text: `You set ${prs.length === 1 ? 'a record' : `${prs.length} records`} ${label}: ${[...new Set(prs.map((p) => p.label))].join(', ')}.`, priority: 70 });
 
+  const mood = (snap.journal ?? []).filter((j) => j.day >= shiftDay(snap.today, -13)).sort((a, b) => a.day.localeCompare(b.day)).slice(-5);
+  if (mood.length >= 3) {
+    const avg = mood.reduce((a, j) => a + j.mood, 0) / mood.length;
+    if (avg <= 2.2) add({ id: 'mood-low', tone: 'info', title: 'Mood has been low', text: 'Be kind to yourself: rest, fresh air and talking to someone you trust can help. If it stays heavy for a while, consider speaking with a doctor or counsellor.', priority: 90 });
+    else if (avg >= 4) add({ id: 'mood-good', tone: 'good', title: 'Good mood lately', text: `Your journal mood averages ${avg.toFixed(1)} out of 5. Notice what is working and keep it.`, priority: 33 });
+  }
+
   if (snap.streak >= 7) add({ id: 'streak', tone: 'good', title: `${snap.streak}-day streak`, text: 'The chain is strong. A Rest Day or Shield protects it if life gets busy.', priority: 36 });
 
   return out.sort((a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone] || b.priority - a.priority);
@@ -521,5 +544,34 @@ export function buildWeeklyReview(snap: Snapshot, weekKey: string, questStats: Q
   return {
     weekKey, headline, wins: wins.slice(0, 5), weak: weak.slice(0, 4), plan: plan.slice(0, 5),
     stats: { activeDays: w.activeDays, effort: Math.round(w.effort), effortChange, runKm: w.runKm, runs: w.runs, avgSleep: w.avgSleep, penalties: w.penalties, questsCompleted: questStats.completed, studyHours: w.studyHours },
+  };
+}
+
+// ---------- sleep report ----------
+
+export interface SleepReport {
+  nights: { day: string; hours: number; bedMinutes: number | null }[];
+  avg: number | null;
+  /** Hours short of your target, added up over the window. */
+  debt: number;
+  /** 0 to 100: how steady your bedtime is (100 = same time every night). Null until 3 nights have a bedtime. */
+  consistency: number | null;
+  /** Nights with 7 hours or more. */
+  goodNights: number;
+  target: number;
+}
+
+/** Sleep tracker numbers for the last `n` days: average, sleep debt and how regular your bedtime is. */
+export function sleepReport(snap: Snapshot, n = 14): SleepReport {
+  const days = dayStats(snap, n);
+  const w = windowStats(days, snap.sleepTargetHours);
+  const nights = days.filter((d) => d.sleepHours > 0).map((d) => ({ day: d.day, hours: d.sleepHours, bedMinutes: d.bedMinutes }));
+  return {
+    nights,
+    avg: w.avgSleep,
+    debt: w.sleepDebt,
+    consistency: w.bedtimeSpread === null ? null : Math.max(0, Math.round(100 - w.bedtimeSpread / 1.2)),
+    goodNights: nights.filter((x) => x.hours >= 7).length,
+    target: snap.sleepTargetHours,
   };
 }

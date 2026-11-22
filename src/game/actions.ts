@@ -4,7 +4,10 @@ import { computePenalty, computeReward, DEFAULT_FORMULA, maxQtyFor, presetWeight
 import { applyXpDelta, freeStatPoints, levelFromXp, levelScale } from '../engine/levels';
 import { masteryInfo, performanceBonus } from '../engine/progress';
 import { loadProgressInputs } from './progress';
+import { shadowBonusFor } from '../engine/shadows';
 import { evaluateQuests, type QuestCompletion } from './quests';
+import { checkShadow, type ExtractedShadow } from './shadows';
+import { checkTrophies, type UnlockedTrophy } from './trophies';
 import { doubleXpBoost } from './shop';
 import { rankInfoForLevel } from '../engine/ranks';
 import { dayKey, setDayStartHour } from '../engine/streak';
@@ -12,7 +15,7 @@ import type { Intensity, PenaltyQuestHint, PlayMode, StatKey } from '../engine/t
 import { STAT_KEYS } from '../engine/types';
 
 /** The tables a game action may touch (used for atomic transactions). */
-const tables = () => [db.profile, db.logs, db.settings, db.presets, db.categories, db.quests, db.questTemplates, db.shop, db.purchases, db.inventory];
+const tables = () => [db.profile, db.logs, db.settings, db.presets, db.categories, db.quests, db.questTemplates, db.shop, db.purchases, db.inventory, db.shadows, db.journal];
 
 export const getFormula = async (): Promise<Formula> => {
   const stored = await getSetting<Partial<Formula>>('formula', {});
@@ -71,8 +74,9 @@ export async function setHp(hp: number): Promise<void> {
  *  v5: "Mind" becomes "Core" (free-form, no mastery) and gains Meditation and Learning tasks.
  *  v6: adds the hidden "Daily quests missed" penalty used by the quest system.
  *  v7: water is measured in litres (2 L a day) and sleep gets a reward cap.
+ *  v8: adds the Focus session task and the Okay meal task.
  */
-export const SEED_VERSION = 7;
+export const SEED_VERSION = 8;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -85,6 +89,9 @@ async function migrateSeed(): Promise<void> {
   if (v < 4) await mergeSportsIntoCardio();
   if (v < 5) await mindToCore();
   if (v < 7) await waterAndSleep();
+  if (v < 8) {
+    for (const id of ['focus', 'meal-okay']) if (!(await db.presets.get(id))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === id)!);
+  }
   if (v < 6 && !(await db.presets.get('p-quests'))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === 'p-quests')!);
   await setSetting('seedVersion', SEED_VERSION);
 }
@@ -207,6 +214,9 @@ export interface LogResult {
   perfBonus: number;
   /** Quests (and the daily-set bonus) that this log completed, already paid. */
   questsCompleted: QuestCompletion[];
+  /** Habits that just reached 21 days and became Shadows. */
+  shadowsExtracted: ExtractedShadow[];
+  trophiesUnlocked: UnlockedTrophy[];
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -271,6 +281,7 @@ async function computeEffects(
     rankRewardMult: rankInfoForLevel(level).rewardMult,
     perfBonus: perf.bonus,
     xpBoost: await doubleXpBoost(ts),
+    shadowBonus: shadowBonusFor(await db.shadows.where('categoryId').equals(preset.categoryId).count()),
     masteryBonus: cat?.mastery === false ? 0 : masteryInfo(prog.categoryEffort).bonus,
     weights: presetWeights(preset, cat?.weights ?? {}),
   });
@@ -313,7 +324,9 @@ export async function logActivity(input: LogInput): Promise<LogResult> {
     const logId = (await db.logs.add(entry as LogEntry)) as number;
     await db.profile.put(applyToProfile(profile, entry, 1));
     // Completing a quest pays its reward straight away (so level-ups include quest XP).
+    const shadowsExtracted = entry.isPenalty ? [] : await checkShadow(preset.id, Date.now());
     const questsCompleted = await evaluateQuests(Date.now());
+    const trophiesUnlocked = await checkTrophies(Date.now());
     const final = (await db.profile.get(1))!;
     const lb = levelFromXp(profile.totalXp).level;
     const la = levelFromXp(final.totalXp).level;
@@ -333,6 +346,8 @@ export async function logActivity(input: LogInput): Promise<LogResult> {
       pr: !!entry.pr,
       perfBonus: entry.perfBonus ?? 0,
       questsCompleted,
+      shadowsExtracted,
+      trophiesUnlocked,
     };
   });
 }

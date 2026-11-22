@@ -52,6 +52,23 @@ export interface LogEntry {
   demo?: boolean;
 }
 
+/** An extracted habit: gives a small permanent XP bonus in its category. */
+export interface Shadow {
+  id: string; // the preset it came from
+  name: string;
+  categoryId: string;
+  extractedAt: number;
+}
+
+/** One journal entry per day (id is the day, e.g. "2026-11-23"). The text never leaves the phone. */
+export interface JournalEntry {
+  id: string;
+  ts: number;
+  mood: number;
+  energy: number;
+  text: string;
+}
+
 /** Key/value app settings (theme, formula, mode, AI toggle, Worker URL...). */
 export interface Setting {
   key: string;
@@ -69,6 +86,8 @@ export class AriseDB extends Dexie {
   shop!: EntityTable<ShopItem, 'id'>;
   purchases!: EntityTable<Purchase, 'id'>;
   inventory!: EntityTable<InventoryRow, 'id'>;
+  shadows!: EntityTable<Shadow, 'id'>;
+  journal!: EntityTable<JournalEntry, 'id'>;
 
   constructor() {
     super('arise');
@@ -112,6 +131,21 @@ export class AriseDB extends Dexie {
       shop: 'id, order',
       purchases: '++id, ts',
       inventory: 'id',
+    });
+    // v4: Shadow Army and the daily journal.
+    this.version(4).stores({
+      profile: 'id',
+      logs: '++id, ts, categoryId, presetId, isPenalty',
+      settings: 'key',
+      categories: 'id, order',
+      presets: 'id, categoryId',
+      quests: '++id, &key, kind, status, periodStart',
+      questTemplates: '++id',
+      shop: 'id, order',
+      purchases: '++id, ts',
+      inventory: 'id',
+      shadows: 'id, categoryId',
+      journal: 'id, ts',
     });
   }
 }

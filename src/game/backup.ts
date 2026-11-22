@@ -26,16 +26,18 @@ const BackupSchema = z.object({
     shop: z.array(z.looseObject({ id: z.string(), name: z.string() })).default([]),
     purchases: z.array(z.looseObject({ ts: num })).default([]),
     inventory: z.array(z.looseObject({ id: z.string(), count: num })).default([]),
+    shadows: z.array(z.looseObject({ id: z.string(), categoryId: z.string() })).default([]),
+    journal: z.array(z.looseObject({ id: z.string(), mood: num, energy: num })).default([]),
   }),
 });
 export type Backup = z.infer<typeof BackupSchema>;
 
 export async function buildBackup(now = Date.now()): Promise<Backup> {
-  const [profile, logs, settings, categories, presets, quests, questTemplates, shop, purchases, inventory] = await Promise.all([
+  const [profile, logs, settings, categories, presets, quests, questTemplates, shop, purchases, inventory, shadows, journal] = await Promise.all([
     db.profile.toArray(), db.logs.toArray(), db.settings.toArray(), db.categories.toArray(), db.presets.toArray(),
-    db.quests.toArray(), db.questTemplates.toArray(), db.shop.toArray(), db.purchases.toArray(), db.inventory.toArray(),
+    db.quests.toArray(), db.questTemplates.toArray(), db.shop.toArray(), db.purchases.toArray(), db.inventory.toArray(), db.shadows.toArray(), db.journal.toArray(),
   ]);
-  return { app: 'arise', version: BACKUP_VERSION, exportedAt: now, tables: { profile, logs, settings, categories, presets, quests, questTemplates, shop, purchases, inventory } } as unknown as Backup;
+  return { app: 'arise', version: BACKUP_VERSION, exportedAt: now, tables: { profile, logs, settings, categories, presets, quests, questTemplates, shop, purchases, inventory, shadows, journal } } as unknown as Backup;
 }
 
 export const backupFileName = (now = Date.now()) => `arise-backup-${new Date(now).toISOString().slice(0, 10)}.json`;
@@ -57,7 +59,7 @@ export function parseBackup(text: string): Backup {
 export async function restoreBackup(text: string): Promise<{ logs: number }> {
   const b = parseBackup(text); // validate BEFORE touching any data
   const t = b.tables;
-  const all = [db.profile, db.logs, db.settings, db.categories, db.presets, db.quests, db.questTemplates, db.shop, db.purchases, db.inventory];
+  const all = [db.profile, db.logs, db.settings, db.categories, db.presets, db.quests, db.questTemplates, db.shop, db.purchases, db.inventory, db.shadows, db.journal];
   await db.transaction('rw', all, async () => {
     await Promise.all(all.map((t) => t.clear()));
     await db.profile.bulkPut(t.profile as never[]);
@@ -70,6 +72,8 @@ export async function restoreBackup(text: string): Promise<{ logs: number }> {
     await db.shop.bulkPut(t.shop as never[]);
     await db.purchases.bulkPut(t.purchases as never[]);
     await db.inventory.bulkPut(t.inventory as never[]);
+    await db.shadows.bulkPut(t.shadows as never[]);
+    await db.journal.bulkPut(t.journal as never[]);
   });
   await dailyTick(); // runs any data migrations an older backup still needs, then rebuilds today's quests
   return { logs: t.logs.length };

@@ -37,7 +37,7 @@ const toSysLog = (l: LogEntry): SysLog => ({
 
 /** Reads what the System engine needs from the database (a compact picture of the last 60 days plus settings). */
 export async function loadSnapshot(now = Date.now()): Promise<Snapshot> {
-  const [logs, profile, mode, paused, exam, deadlines, gentleDay, sleepT, cats] = await Promise.all([
+  const [logs, profile, mode, paused, exam, deadlines, gentleDay, sleepT, cats, journal] = await Promise.all([
     db.logs.where('ts').above(now - 366 * DAY).toArray(),
     db.profile.get(1),
     getSetting<PlayMode>('mode', 'normal'),
@@ -47,6 +47,7 @@ export async function loadSnapshot(now = Date.now()): Promise<Snapshot> {
     getSetting<string | null>('gentleDay', null),
     getSleepTargets(),
     db.categories.toArray(),
+    db.journal.where('ts').above(now - 21 * DAY).toArray(),
   ]);
   const pausedSet = new Set(paused);
   const today = dayKey(now);
@@ -65,6 +66,7 @@ export async function loadSnapshot(now = Date.now()): Promise<Snapshot> {
     sleepTargetHours: diff / 60 || 8,
     forceGentle: gentleDay === today,
     categoryNames: Object.fromEntries(cats.map((c) => [c.id, c.name])),
+    journal: journal.map((j) => ({ day: j.id, mood: j.mood, energy: j.energy })),
   };
 }
 

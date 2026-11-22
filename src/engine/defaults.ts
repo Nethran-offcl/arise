@@ -109,10 +109,12 @@ export const DEFAULT_PRESETS: Preset[] = [
   task({ id: 'wake-ontime', c: 'recovery', n: 'Woke on time', b: 20, g: 4 }),
   task({ id: 'water', c: 'recovery', n: 'Drink water', u: 'liters', q: 2, x: 12, gu: 3, hpu: 1, cap: 4 }),
   task({ id: 'healthy-meal', c: 'recovery', n: 'Healthy meal', u: 'count', q: 1, x: 12, gu: 3, hp: 2 }),
+  task({ id: 'meal-okay', c: 'recovery', n: 'Okay meal', b: 4, g: 1 }),
   task({ id: 'meal-prep', c: 'recovery', n: 'Meal prep', b: 25, g: 8, w: { VIT: 0.6, DIS: 0.4 } }),
   // Mind (SEN)
   task({ id: 'meditation', c: 'core', n: 'Meditation', u: 'minutes', q: 10, x: 1.2, gu: 0.3, hp: 2 }),
   task({ id: 'journal', c: 'core', n: 'Journaling', b: 15, g: 4 }),
+  task({ id: 'focus', c: 'study', n: 'Focus session (timer)', u: 'minutes', q: 25, x: 0.8, gu: 0.25, hpu: -0.05, w: { INT: 0.6, DIS: 0.4 } }),
   task({ id: 'reading', c: 'core', n: 'Read (book / article)', u: 'minutes', q: 30, x: 0.6, gu: 0.2, w: KNOWLEDGE_SPLIT }),
   task({ id: 'learn', c: 'core', n: 'Learned something new', u: 'count', q: 1, x: 25, gu: 6, w: KNOWLEDGE_SPLIT }),
   task({ id: 'planning', c: 'core', n: 'Plan the day/week', b: 12, g: 3 }),
