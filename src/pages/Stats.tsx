@@ -32,7 +32,7 @@ export default function Stats() {
 
       <SystemWindow title="Category mastery">
         <ul className="divide-y divide-line">
-          {cats.filter((c) => c.kind === 'task').map((c) => {
+          {cats.filter((c) => c.kind === 'task' && c.mastery !== false).map((c) => {
             const m = masteryInfo(effort[c.id] ?? 0);
             return (
               <li key={c.id} className="flex items-center justify-between py-2 text-sm">
@@ -43,7 +43,7 @@ export default function Stats() {
             );
           })}
         </ul>
-        <p className="mt-2 text-xs text-muted">The more effort you put into a category, the more every task in it pays.</p>
+        <p className="mt-2 text-xs text-muted">The more effort you put into a category, the more every task in it pays. Core has no mastery: it is for anything you want credit for.</p>
       </SystemWindow>
 
       <SystemWindow title={`Stat points: ${free}`}>

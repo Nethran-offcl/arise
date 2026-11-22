@@ -28,6 +28,8 @@ export interface Category {
   /** How rewards from this category are split between stats (weights should sum to ~1). */
   weights: Weights;
   kind: 'task' | 'penalty';
+  /** When false the category has no mastery bonus (used for the free-form Core category). Default true. */
+  mastery?: boolean;
   order: number;
 }
 

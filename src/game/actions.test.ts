@@ -246,6 +246,54 @@ describe('Cardio and Sports are one category', () => {
   });
 });
 
+describe('Core category', () => {
+  it('fresh installs have Core (no Mind) with free-form tasks and no mastery', async () => {
+    expect(await db.categories.get('mind')).toBeUndefined();
+    const core = (await db.categories.get('core'))!;
+    expect(core.mastery).toBe(false);
+    for (const id of ['meditation', 'journal', 'reading', 'learn', 'planning', 'review']) expect((await db.presets.get(id))!.categoryId).toBe('core');
+  });
+  it('Core tasks never get a mastery bonus, however much you log', async () => {
+    for (let i = 0; i < 12; i++) await logActivity({ ...base, ts: base.ts - 100_000 + i * 1000, presetId: 'meditation', qty: 30 });
+    const r = await logActivity({ ...base, presetId: 'meditation', qty: 30 });
+    expect(r.xp).toBe(36); // 1.2 x 30, always
+  });
+  it('other categories still earn mastery', async () => {
+    for (let i = 0; i < 3; i++) await logActivity({ ...base, ts: base.ts - 100_000 + i * 1000, presetId: 'study', qty: 2 });
+    expect((await logActivity({ ...base, presetId: 'study', qty: 2 })).xp).toBeGreaterThan(80);
+  });
+  it('custom tasks can be added to Core and get stats', async () => {
+    await db.presets.put({ ...(await db.presets.get('journal'))!, id: 'custom-podcast', name: 'Educational podcast', builtin: false });
+    const r = await logActivity({ ...base, presetId: 'custom-podcast', qty: 1 });
+    expect(r.xp).toBe(15);
+    expect(r.statGains.SEN).toBeGreaterThan(0);
+  });
+  it('migrates Mind to Core: tasks, logs and Reading all move; nothing of yours is lost', async () => {
+    await logActivity({ ...base, presetId: 'journal' });
+    await logActivity({ ...base, presetId: 'reading', qty: 30 });
+    // rebuild the old layout
+    await db.categories.delete('core');
+    await db.categories.put({ id: 'mind', name: 'Mind', icon: '🧠', weights: { SEN: 1 }, kind: 'task', order: 8 });
+    await db.presets.update('journal', { categoryId: 'mind' });
+    await db.presets.put({ ...(await db.presets.get('journal'))!, id: 'custom-yoga', name: 'Yoga', builtin: false });
+    await db.presets.update('reading', { categoryId: 'study', name: 'Reading', weights: undefined });
+    for (const l of await db.logs.toArray()) await db.logs.update(l.id!, { categoryId: l.presetId === 'reading' ? 'study' : 'mind' });
+    await db.presets.delete('meditation');
+    await db.presets.delete('learn');
+    await setSetting('seedVersion', 4);
+    await ensureSeed();
+    expect(await db.categories.get('mind')).toBeUndefined();
+    expect((await db.categories.get('core'))!.mastery).toBe(false);
+    expect((await db.presets.get('journal'))!.categoryId).toBe('core');
+    expect((await db.presets.get('custom-yoga'))!.categoryId).toBe('core');
+    expect((await db.presets.get('reading'))!.categoryId).toBe('core');
+    expect((await db.presets.get('reading'))!.name).toBe('Read (book / article)');
+    expect((await db.presets.get('meditation'))).toBeTruthy();
+    expect((await db.presets.get('learn'))).toBeTruthy();
+    expect((await db.logs.toArray()).every((l) => l.categoryId === 'core')).toBe(true);
+  });
+});
+
 describe('backup and restore', () => {
   it('round-trips everything through a plain JSON file', async () => {
     await logActivity({ ...base, presetId: 'run', qty: 5, perf: 7 });

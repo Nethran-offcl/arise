@@ -67,7 +67,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
     const perf = preset.perf && perfValue
       ? performanceBonus(preset.perf.kind, perfValue, prog?.perfValues ?? [], preset.perfStart)
       : { bonus: 0, pr: false, suspicious: false };
-    const mastery = masteryInfo(prog?.categoryEffort ?? 0);
+    const mastery = cat?.mastery === false ? masteryInfo(0) : masteryInfo(prog?.categoryEffort ?? 0);
     const r = computeReward(preset, q, intensity, {
       formula,
       level,

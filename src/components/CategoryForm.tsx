@@ -17,6 +17,7 @@ export function CategoryForm({ initial, onDone }: { initial?: Category; onDone: 
   const [name, setName] = useState(initial?.name ?? '');
   const [icon, setIcon] = useState(initial?.icon ?? '⭐');
   const [stat, setStat] = useState<StatKey>(mainStat(initial));
+  const [mastery, setMastery] = useState(initial?.mastery !== false);
   const used = initial ? presets.filter((p) => p.categoryId === initial.id).length : 0;
   const split = initial && Object.keys(initial.weights).length > 1;
 
@@ -24,13 +25,13 @@ export function CategoryForm({ initial, onDone }: { initial?: Category; onDone: 
     if (initial) {
       // Keep a multi-stat split (e.g. Sports) unless you pick a different main stat.
       const weights = stat === mainStat(initial) ? initial.weights : { [stat]: 1 };
-      await db.categories.put({ ...initial, name: name.trim(), icon: icon || '⭐', weights });
+      await db.categories.put({ ...initial, name: name.trim(), icon: icon || '⭐', weights, mastery });
       say('[SYSTEM] Category updated.');
       onDone(initial.id);
       return;
     }
     const id = `cat-${Date.now().toString(36)}`;
-    await db.categories.put({ id, name: name.trim(), icon: icon || '⭐', weights: { [stat]: 1 }, kind: 'task', order: cats.length });
+    await db.categories.put({ id, name: name.trim(), icon: icon || '⭐', weights: { [stat]: 1 }, kind: 'task', order: cats.length, mastery });
     say('[SYSTEM] Category created. Add a custom task to it.');
     onDone(id);
   }
@@ -44,6 +45,10 @@ export function CategoryForm({ initial, onDone }: { initial?: Category; onDone: 
           {STAT_KEYS.map((k) => <option key={k} value={k}>{k} - {STAT_LABEL[k]}</option>)}
         </select>
       </Field>
+      <label className="flex items-start gap-3 text-sm">
+        <input type="checkbox" className="mt-1 h-5 w-5" checked={mastery} onChange={(e) => setMastery(e.target.checked)} />
+        <span>Track mastery for this category (tasks pay more as you put effort in)</span>
+      </label>
       {split && <p className="text-xs text-muted">This category splits between stats. Keep the main stat to keep the split, or pick another to use that stat only.</p>}
       <button className={btnPrimary} disabled={!name.trim()} onClick={save}>{initial ? 'Save category' : 'Create category'}</button>
       {initial && (

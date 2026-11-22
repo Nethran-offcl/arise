@@ -9,7 +9,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'work', name: 'Work', icon: '💼', weights: { DIS: 0.8, INT: 0.2 }, kind: 'task', order: 5 },
   { id: 'tasks', name: 'Tasks & Chores', icon: '🧹', weights: { DIS: 1 }, kind: 'task', order: 6 },
   { id: 'recovery', name: 'Recovery', icon: '🌙', weights: { VIT: 1 }, kind: 'task', order: 7 },
-  { id: 'mind', name: 'Mind', icon: '🧠', weights: { SEN: 1 }, kind: 'task', order: 8 },
+  // Core: a free-form bucket for anything you want credit for (meditation, reading, learning...). No mastery bonus.
+  { id: 'core', name: 'Core', icon: '✨', weights: { SEN: 0.6, INT: 0.4 }, kind: 'task', order: 8, mastery: false },
   { id: 'penalty', name: 'Course Corrections', icon: '⚠️', weights: {}, kind: 'penalty', order: 99 },
 ];
 
@@ -34,6 +35,7 @@ const LIFT: PerfSpec = { kind: 'higher', label: 'Heaviest weight lifted (kg)', u
 const PLAY: PerfSpec = { kind: 'higher', label: 'How well did you play? (1-10, honest rating)', unit: '/10' };
 
 const SPORT_SPLIT: Weights = { AGI: 0.6, STR: 0.4 };
+const KNOWLEDGE_SPLIT: Weights = { INT: 0.7, SEN: 0.3 };
 
 const task = (p: P): Preset => ({
   id: p.id,
@@ -93,7 +95,6 @@ export const DEFAULT_PRESETS: Preset[] = [
   // Study (INT)
   task({ id: 'study', c: 'study', n: 'Study session', u: 'hours', q: 1, x: 40, gu: 10 }),
   task({ id: 'assignment', c: 'study', n: 'Finish assignment', u: 'count', q: 1, x: 60, gu: 25 }),
-  task({ id: 'reading', c: 'study', n: 'Reading', u: 'minutes', q: 30, x: 0.6, gu: 0.2 }),
   // Work (DIS)
   task({ id: 'office', c: 'work', n: 'Office task done', u: 'count', q: 1, x: 20, gu: 6 }),
   // Tasks & chores (DIS)
@@ -107,9 +108,12 @@ export const DEFAULT_PRESETS: Preset[] = [
   task({ id: 'healthy-meal', c: 'recovery', n: 'Healthy meal', u: 'count', q: 1, x: 12, gu: 3, hp: 2 }),
   task({ id: 'meal-prep', c: 'recovery', n: 'Meal prep', b: 25, g: 8, w: { VIT: 0.6, DIS: 0.4 } }),
   // Mind (SEN)
-  task({ id: 'journal', c: 'mind', n: 'Journaling', b: 15, g: 4 }),
-  task({ id: 'planning', c: 'mind', n: 'Plan the day/week', b: 12, g: 3 }),
-  task({ id: 'review', c: 'mind', n: 'Reflect & review', b: 20, g: 5 }),
+  task({ id: 'meditation', c: 'core', n: 'Meditation', u: 'minutes', q: 10, x: 1.2, gu: 0.3, hp: 2 }),
+  task({ id: 'journal', c: 'core', n: 'Journaling', b: 15, g: 4 }),
+  task({ id: 'reading', c: 'core', n: 'Read (book / article)', u: 'minutes', q: 30, x: 0.6, gu: 0.2, w: KNOWLEDGE_SPLIT }),
+  task({ id: 'learn', c: 'core', n: 'Learned something new', u: 'count', q: 1, x: 25, gu: 6, w: KNOWLEDGE_SPLIT }),
+  task({ id: 'planning', c: 'core', n: 'Plan the day/week', b: 12, g: 3 }),
+  task({ id: 'review', c: 'core', n: 'Reflect & review', b: 20, g: 5 }),
   // Course corrections (gentle: small XP loss, never any food restriction as a "fix")
   penalty('p-junk', 'Junk food / binge', 5, 3, false, { text: 'Drink a glass of water and take a short walk.', presetId: 'walk', qty: 15 }),
   penalty('p-sugar', 'Sugary drink', 3, 2, false, { text: 'Have a glass of water.', presetId: 'water', qty: 1 }),

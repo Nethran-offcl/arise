@@ -66,8 +66,9 @@ export async function setHp(hp: number): Promise<void> {
  * One-time data migrations, tracked by the `seedVersion` setting so they never run twice.
  *  v3: built-in presets get HP scaling and progress tracking.
  *  v4: Sports merged into Cardio & Sports (presets, logs and mastery all move together).
+ *  v5: "Mind" becomes "Core" (free-form, no mastery) and gains Meditation and Learning tasks.
  */
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -78,6 +79,7 @@ async function migrateSeed(): Promise<void> {
     }
   }
   if (v < 4) await mergeSportsIntoCardio();
+  if (v < 5) await mindToCore();
   await setSetting('seedVersion', SEED_VERSION);
 }
 
@@ -95,6 +97,30 @@ export async function mergeSportsIntoCardio(): Promise<void> {
     await db.categories.delete('sports');
     const cardio = await db.categories.get('cardio');
     if (cardio && cardio.name === 'Cardio') await db.categories.update('cardio', { name: 'Cardio & Sports' });
+  });
+}
+
+/** Mind -> Core. Moves tasks and logs, adds the new built-in tasks, never touches what you created. */
+export async function mindToCore(): Promise<void> {
+  await db.transaction('rw', [db.presets, db.logs, db.categories], async () => {
+    const core = DEFAULT_CATEGORIES.find((c) => c.id === 'core')!;
+    if (!(await db.categories.get('core'))) await db.categories.put(core);
+    const mind = await db.categories.get('mind');
+    if (mind) {
+      for (const p of await db.presets.where('categoryId').equals('mind').toArray()) await db.presets.update(p.id, { categoryId: 'core' });
+      for (const l of await db.logs.where('categoryId').equals('mind').toArray()) await db.logs.update(l.id!, { categoryId: 'core' });
+      await db.categories.delete('mind');
+    }
+    // Reading moves from Study to Core (it keeps mostly feeding INT).
+    const reading = await db.presets.get('reading');
+    if (reading?.builtin && reading.categoryId !== 'core') {
+      const d = DEFAULT_PRESETS.find((x) => x.id === 'reading')!;
+      await db.presets.update('reading', { categoryId: 'core', name: d.name, weights: d.weights });
+      for (const l of await db.logs.where('presetId').equals('reading').toArray()) await db.logs.update(l.id!, { categoryId: 'core' });
+    }
+    for (const id of ['meditation', 'learn']) {
+      if (!(await db.presets.get(id))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === id)!);
+    }
   });
 }
 
@@ -215,7 +241,7 @@ async function computeEffects(
     level,
     rankRewardMult: rankInfoForLevel(level).rewardMult,
     perfBonus: perf.bonus,
-    masteryBonus: masteryInfo(prog.categoryEffort).bonus,
+    masteryBonus: cat?.mastery === false ? 0 : masteryInfo(prog.categoryEffort).bonus,
     weights: presetWeights(preset, cat?.weights ?? {}),
   });
   const refund = input.refundCap !== undefined;
