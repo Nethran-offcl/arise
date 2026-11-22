@@ -80,8 +80,9 @@ export async function setHp(hp: number): Promise<void> {
  *  v10: Study and Core share one mind mastery; Study feeds Sense; Work feeds Intelligence; new skills & learning tasks.
  *  v11: Core splits Intelligence and Sense evenly (50/50), including its reading, learning and skills tasks.
  *  v12: more exercises: push-ups, pull-ups, plank, plyometrics, incline walking, cycling, jump rope, swimming, stretching, yoga.
+ *  v13: Trekking / hiking (builds Agility, Strength and Vitality).
  */
-export const SEED_VERSION = 12;
+export const SEED_VERSION = 13;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -97,6 +98,7 @@ async function migrateSeed(): Promise<void> {
   if (v < 9) await fixOldWaterQuests();
   if (v < 10) await mindStats();
   if (v < 11) await coreEven();
+  if (v < 13 && !(await db.presets.get('trekking'))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === 'trekking')!);
   if (v < 12) {
     for (const id of ['pushups', 'pullups', 'plank', 'plyo', 'incline-walk', 'cycling', 'jump-rope', 'swimming', 'stretch', 'yoga']) {
       if (!(await db.presets.get(id))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === id)!);

@@ -100,6 +100,8 @@ export const DEFAULT_PRESETS: Preset[] = [
   task({ id: 'incline-walk', c: 'cardio', n: 'Incline walking', u: 'minutes', q: 30, x: 1, gu: 0.3, hpu: -0.06 }),
   task({ id: 'cycling', c: 'cardio', n: 'Cycling', u: 'minutes', q: 45, x: 0.85, gu: 0.3, hpu: -0.08 }),
   task({ id: 'jump-rope', c: 'cardio', n: 'Jump rope', u: 'minutes', q: 10, x: 1.2, gu: 0.35, hpu: -0.2 }),
+  // Trekking is taxing, not pure cardio: it costs real energy (about 6 HP an hour) and builds Strength and Vitality too
+  task({ id: 'trekking', c: 'cardio', n: 'Trekking / hiking', u: 'hours', q: 2, b: 10, x: 65, g: 5, gu: 18, hpu: -6, w: { AGI: 0.5, STR: 0.3, VIT: 0.2 } }),
   task({ id: 'swimming', c: 'cardio', n: 'Swimming', u: 'minutes', q: 30, x: 1.1, gu: 0.35, hpu: -0.1 }),
   // Sports (AGI + STR)
   task({ id: 'badminton', c: 'cardio', n: 'Badminton', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY, w: SPORT_SPLIT }),
