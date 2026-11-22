@@ -3,7 +3,7 @@ import type { Category, Preset, UnitKind, Weights } from './types';
 
 /** Starter categories. Everything here can be edited, and you can add your own. */
 export const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cardio', name: 'Cardio & Sports', icon: '🏃', weights: { AGI: 1 }, kind: 'task', order: 1 },
+  { id: 'cardio', name: 'Cardio & Sports', icon: '🏃', weights: { AGI: 0.7, VIT: 0.3 }, kind: 'task', order: 1 },
   { id: 'strength', name: 'Strength', icon: '🏋️', weights: { STR: 1 }, kind: 'task', order: 2 },
   { id: 'study', name: 'Study', icon: '📚', weights: { INT: 0.7, SEN: 0.3 }, kind: 'task', order: 4, masteryGroup: 'mind' },
   { id: 'work', name: 'Work', icon: '💼', weights: { INT: 0.5, DIS: 0.5 }, kind: 'task', order: 5 },
@@ -37,7 +37,7 @@ const REPS: PerfSpec = { kind: 'higher', label: 'Most reps in one set', unit: 'r
 const LIFT: PerfSpec = { kind: 'higher', label: 'Heaviest weight lifted (kg)', unit: 'kg' };
 const PLAY: PerfSpec = { kind: 'higher', label: 'How well did you play? (1-10, honest rating)', unit: '/10' };
 
-const SPORT_SPLIT: Weights = { AGI: 0.6, STR: 0.4 };
+const SPORT_SPLIT: Weights = { AGI: 0.5, STR: 0.3, VIT: 0.2 };
 const SKILL_RATING: PerfSpec = { kind: 'higher', label: 'How did it go? (1-10, honest rating)', unit: '/10' };
 
 const task = (p: P): Preset => ({

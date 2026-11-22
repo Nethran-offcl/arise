@@ -81,8 +81,9 @@ export async function setHp(hp: number): Promise<void> {
  *  v11: Core splits Intelligence and Sense evenly (50/50), including its reading, learning and skills tasks.
  *  v12: more exercises: push-ups, pull-ups, plank, plyometrics, incline walking, cycling, jump rope, swimming, stretching, yoga.
  *  v13: Trekking / hiking (builds Agility, Strength and Vitality).
+ *  v14: cardio builds Vitality as well as Agility (70/30); sports are 50% Agility, 30% Strength, 20% Vitality.
  */
-export const SEED_VERSION = 13;
+export const SEED_VERSION = 14;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -98,6 +99,7 @@ async function migrateSeed(): Promise<void> {
   if (v < 9) await fixOldWaterQuests();
   if (v < 10) await mindStats();
   if (v < 11) await coreEven();
+  if (v < 14) await cardioVitality();
   if (v < 13 && !(await db.presets.get('trekking'))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === 'trekking')!);
   if (v < 12) {
     for (const id of ['pushups', 'pullups', 'plank', 'plyo', 'incline-walk', 'cycling', 'jump-rope', 'swimming', 'stretch', 'yoga']) {
@@ -166,6 +168,18 @@ export async function mindStats(): Promise<void> {
     if (work && sameWeights(work.weights, { DIS: 0.8, INT: 0.2 })) await db.categories.update('work', { weights: { INT: 0.5, DIS: 0.5 } });
     for (const id of ['course', 'skill-practice', 'create', 'work-learning']) {
       if (!(await db.presets.get(id))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === id)!);
+    }
+  });
+}
+
+/** v14: endurance builds Vitality too. A split you edited yourself is left alone. */
+export async function cardioVitality(): Promise<void> {
+  await db.transaction('rw', [db.categories, db.presets], async () => {
+    const cardio = await db.categories.get('cardio');
+    if (cardio && sameWeights(cardio.weights, { AGI: 1 })) await db.categories.update('cardio', { weights: { AGI: 0.7, VIT: 0.3 } });
+    for (const id of ['badminton', 'basketball', 'volleyball']) {
+      const p = await db.presets.get(id);
+      if (p?.builtin && p.weights && sameWeights(p.weights, { AGI: 0.6, STR: 0.4 })) await db.presets.update(id, { weights: { AGI: 0.5, STR: 0.3, VIT: 0.2 } });
     }
   });
 }

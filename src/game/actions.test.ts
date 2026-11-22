@@ -30,7 +30,8 @@ describe('logging', () => {
     const p = (await db.profile.get(1))!;
     expect(p.totalXp).toBe(100);
     expect(p.gold).toBe(27);
-    expect(p.stats.AGI).toBe(4);
+    expect(p.stats.AGI).toBe(2.8); // 100 effort x 0.04 x 70% (the rest goes to Vitality)
+    expect(p.stats.VIT).toBe(1.2);
     expect(p.hp).toBe(94); // 3 km x -2
   });
 
@@ -220,7 +221,7 @@ describe('Cardio and Sports are one category', () => {
     expect((await db.categories.get('cardio'))!.name).toBe('Cardio & Sports');
     const bad = (await db.presets.get('badminton'))!;
     expect(bad.categoryId).toBe('cardio');
-    expect(bad.weights).toEqual({ AGI: 0.6, STR: 0.4 });
+    expect(bad.weights).toEqual({ AGI: 0.5, STR: 0.3, VIT: 0.2 });
   });
   it('migrates an existing install: presets, logs and mastery all move together', async () => {
     await logActivity({ ...base, presetId: 'run' });
@@ -235,7 +236,7 @@ describe('Cardio and Sports are one category', () => {
     expect(await db.categories.get('sports')).toBeUndefined();
     expect((await db.categories.get('cardio'))!.name).toBe('Cardio & Sports');
     expect((await db.presets.get('badminton'))!.categoryId).toBe('cardio');
-    expect((await db.presets.get('badminton'))!.weights).toEqual({ AGI: 0.6, STR: 0.4 });
+    expect((await db.presets.get('badminton'))!.weights).toEqual({ AGI: 0.5, STR: 0.3, VIT: 0.2 });
     expect((await db.presets.get('custom-squash'))!.categoryId).toBe('cardio');
     expect((await db.logs.get(sportLog.logId))!.categoryId).toBe('cardio');
     await mergeSportsIntoCardio(); // running it again changes nothing
