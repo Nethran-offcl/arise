@@ -96,7 +96,7 @@ export default function App() {
       </main>
       <BottomNav />
       {toast && (
-        <div role="status" className="sys-window fixed inset-x-4 z-20 mx-auto max-w-md p-3 text-sm text-accent"
+        <div role="status" className="sys-window toast-in fixed inset-x-4 z-20 mx-auto max-w-md border-l-4 border-l-accent p-3 text-sm text-ink"
           style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}>
           {toast}
         </div>

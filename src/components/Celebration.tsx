@@ -1,8 +1,26 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { logActivity } from '../game/actions';
 import { useCelebrate } from '../store/celebrate';
 import { RANKS } from '../engine/ranks';
 import { btnGhost, btnPrimary } from './ui';
+
+/** Rotating light rays and rising sparks behind a ceremony card. */
+function Fx() {
+  const reduce = useReducedMotion();
+  if (reduce) return null;
+  const ray = 'repeating-conic-gradient(from 0deg, rgb(var(--glow) / .22) 0deg 5deg, transparent 5deg 15deg)';
+  const fade = 'radial-gradient(circle, #000 0%, transparent 48%)';
+  return (
+    <>
+      <motion.div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-[150vmax] w-[150vmax] -translate-x-1/2 -translate-y-1/2"
+        style={{ background: ray, WebkitMaskImage: fade, maskImage: fade }} animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 50, ease: 'linear' }} />
+      {Array.from({ length: 18 }).map((_, i) => (
+        <motion.span key={i} aria-hidden className="pointer-events-none absolute text-accent" style={{ left: `${(i * 53) % 100}%`, bottom: '-4%', fontSize: 8 + (i % 4) * 4 }}
+          initial={{ y: 0, opacity: 0 }} animate={{ y: '-115vh', opacity: [0, 1, 0] }} transition={{ duration: 4 + (i % 5), delay: (i % 7) * 0.4, repeat: Infinity, ease: 'easeOut' }}>✦</motion.span>
+      ))}
+    </>
+  );
+}
 
 /** Full-screen level-up / rank-up ceremony and the Penalty Quest offer. */
 export function Celebration() {
@@ -12,14 +30,15 @@ export function Celebration() {
   return (
     <AnimatePresence>
       {c && (
-        <motion.div key={queue.length + c.kind} className="fixed inset-0 z-40 flex items-center justify-center bg-black/85 p-6"
+        <motion.div key={queue.length + c.kind} className="fixed inset-0 z-40 flex items-center justify-center overflow-hidden bg-black/85 p-6"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal>
-          <motion.div className="sys-window w-full max-w-sm p-6 text-center"
+          {c.kind !== 'penaltyQuest' && <Fx />}
+          <motion.div className="sys-window relative w-full max-w-sm p-6 text-center"
             initial={{ scale: 0.8, y: 30 }} animate={{ scale: 1, y: 0 }} transition={{ type: 'spring', stiffness: 160, damping: 14 }}>
             {c.kind === 'level' && (
               <>
                 <p className="sys-title">[ System ]</p>
-                <motion.p className="my-3 text-5xl font-black glow-text" animate={{ scale: [1, 1.12, 1] }} transition={{ repeat: Infinity, duration: 1.6 }}>
+                <motion.p className="my-3 text-4xl font-black glow-text" animate={{ scale: [1, 1.12, 1] }} transition={{ repeat: Infinity, duration: 1.6 }}>
                   LEVEL UP
                 </motion.p>
                 <p className="text-3xl font-bold">Level {c.level}</p>
@@ -43,7 +62,7 @@ export function Celebration() {
             {c.kind === 'shadow' && (
               <>
                 <p className="sys-title">[ Extraction ]</p>
-                <motion.p className="my-3 text-4xl font-black glow-text" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8 }}>SHADOW EXTRACTED</motion.p>
+                <motion.p className="my-3 break-words text-2xl font-black glow-text" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8 }}>SHADOW EXTRACTED</motion.p>
                 <p className="text-lg font-bold">👤 {c.name}</p>
                 <p className="mt-3 text-muted">[SYSTEM] 21 days of consistency. This habit now fights beside you: a permanent +5% XP in its category.</p>
               </>
@@ -63,7 +82,7 @@ export function Celebration() {
             {c.kind === 'boss' && (
               <>
                 <p className="sys-title">[ Raid Complete ]</p>
-                <motion.p className="my-3 text-4xl font-black glow-text" animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 1.6 }}>BOSS DEFEATED</motion.p>
+                <motion.p className="my-3 break-words text-2xl font-black glow-text" animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 1.6 }}>BOSS DEFEATED</motion.p>
                 <p className="text-lg font-bold">{c.name}</p>
                 <p className="mt-3 text-accent">+{c.xp.toLocaleString()} XP · +{c.gold} gold</p>
                 <p className="mt-2 text-sm text-muted">[SYSTEM] A new raid begins on Monday.</p>

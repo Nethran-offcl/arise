@@ -12,7 +12,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Main"
-      className="fixed bottom-0 inset-x-0 z-10 border-t border-line bg-panel/95 backdrop-blur"
+      className="nav-glow fixed bottom-0 inset-x-0 z-10 border-t border-line bg-bg/90 backdrop-blur-md"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="mx-auto flex max-w-md">
@@ -22,7 +22,7 @@ export function BottomNav() {
               to={i.to}
               end={i.to === '/'}
               className={({ isActive }) =>
-                `flex h-16 flex-col items-center justify-center gap-0.5 text-xs ${isActive ? 'text-accent glow-text' : 'text-muted'}`
+                `relative flex h-16 flex-col items-center justify-center gap-0.5 text-xs font-medium tracking-wide ${isActive ? 'nav-active text-accent glow-text' : 'text-muted'}`
               }
             >
               <span className="text-xl leading-none" aria-hidden>{i.icon}</span>

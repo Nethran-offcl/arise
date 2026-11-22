@@ -5,8 +5,8 @@ export function Bar({ value, max, color = 'var(--accent)', label }: { value: num
   const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
   return (
     <div role="progressbar" aria-label={label} aria-valuenow={Math.round(value)} aria-valuemin={0} aria-valuemax={max}
-      className="h-3 w-full overflow-hidden rounded-full bg-black/50 border border-line">
-      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}` }} />
+      className="h-3.5 w-full overflow-hidden rounded-sm border border-line bg-black/60 shadow-[inset_0_1px_3px_rgb(0_0_0/.7)]">
+      <div className="bar-fill h-full rounded-sm transition-all duration-500" style={{ width: `${pct}%`, background: `linear-gradient(90deg, color-mix(in srgb, ${color} 55%, #000), ${color})`, boxShadow: `0 0 10px ${color}, 0 0 20px color-mix(in srgb, ${color} 50%, transparent)` }} />
     </div>
   );
 }
@@ -14,7 +14,7 @@ export function Bar({ value, max, color = 'var(--accent)', label }: { value: num
 /** Bottom sheet used for forms. */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
-    <div className="fixed inset-0 z-30 flex items-end bg-black/70" onClick={onClose} role="dialog" aria-modal aria-label={title}>
+    <div className="fixed inset-0 z-30 flex items-end bg-black/70 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal aria-label={title}>
       <div className="sys-window mx-auto max-h-[92vh] w-full max-w-md overflow-y-auto rounded-b-none p-4"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }} onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
@@ -43,8 +43,8 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
 }
 
 export const inputCls = 'w-full min-h-11 rounded-lg border border-line bg-black/40 px-3 text-ink';
-export const btnPrimary = 'min-h-12 w-full rounded-lg bg-accent px-4 font-semibold text-black';
-export const btnGhost = 'min-h-11 rounded-lg border border-line px-4 text-ink';
+export const btnPrimary = 'min-h-12 w-full rounded-md bg-gradient-to-r from-accent to-accent2 px-4 font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgb(var(--glow)/.5)] transition active:scale-[.98]';
+export const btnGhost = 'min-h-11 rounded-md border border-line px-4 text-ink transition hover:border-accent active:bg-accent/10';
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (

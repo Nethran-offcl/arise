@@ -11,6 +11,9 @@ import { dayKey, daysBetween } from '../engine/streak';
 import { useBackupDue, useMode, useModeDay, useProgress, useRecentLogs, useStreak } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 
+/** Rank colours: steel, green, blue, violet, red, gold. */
+const RANK_COLOR: Record<string, string> = { E: '#9fb0d0', D: '#4ade80', C: '#38bdf8', B: '#a78bfa', A: '#fb7185', S: '#fbbf24' };
+
 const MODE_TEXT = {
   normal: '',
   rest: 'Rest Day active: penalties and streak loss are paused. HP recovers.',
@@ -34,8 +37,8 @@ export default function Home() {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <SystemWindow title="Status">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-accent text-3xl font-black glow-text" aria-label={`Rank ${rank.rank}`}>
-              {rank.rank}
+            <div className="rank-wrap shrink-0" style={{ '--rank': RANK_COLOR[rank.rank] } as React.CSSProperties}>
+              <div className="rank-badge" role="img" aria-label={`Rank ${rank.rank}`}><span>{rank.rank}</span></div>
             </div>
             <div className="min-w-0">
               <p className="truncate text-xl font-bold glow-text">{profile.name}</p>
