@@ -52,7 +52,7 @@ You never have to log everything. Even one small task keeps your streak alive.
 - **Log**: everything you can log, grouped by category. **＋ Custom task** and **＋ Category** let you add your own. Tap a recent log to edit, backdate or delete it.
 - **Quests**: your day type, daily quests, the weekly boss raid, weekly quests, emergency quests, your own quests, milestones.
 - **Stats**: radar chart of your six stats, category mastery, spendable stat points, and the System analysis (7, 14 or 30 days).
-- **Profile**: your name and theme, **Shop & bag**, and the **Tools**: Run tracker, Sleep tracker, Calendar heatmap, Shadow Army, Trophies & titles, Focus timer, Journal, Weekly review, Manage tasks, Settings.
+- **Profile**: your name, colour theme and **style** (Solo Leveling HUD or the calmer Classic look), **Shop & bag**, and the **Tools**: Run tracker, Sleep tracker, Calendar heatmap, Shadow Army, Trophies & titles, Focus timer, Journal, Weekly review, Manage tasks, Settings.
 
 ---
 

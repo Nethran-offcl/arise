@@ -159,7 +159,11 @@ h1, h2, .font-display { font-family: var(--font-display); }
   .sys-window dd { font-family: var(--font-display); font-weight: 700; }
 
   /* Progress bars: glowing fill with a slow light sweep */
-  .bar-fill { position: relative; overflow: hidden; }
+  .bar-fill {
+    position: relative; overflow: hidden;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--bar) 55%, #000), var(--bar));
+    box-shadow: 0 0 10px var(--bar), 0 0 20px color-mix(in srgb, var(--bar) 50%, transparent);
+  }
   .bar-fill::after {
     content: ""; position: absolute; inset: 0;
     background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / .4) 50%, transparent 70%);
@@ -213,3 +217,50 @@ button { min-height: 44px; }
   * { animation: none !important; transition: none !important; }
   body::after { display: none; }
 }
+
+/* ======================================================================================
+   CLASSIC style: the original, calmer look. Same colour themes, none of the HUD effects.
+   Switch it on in Profile > Theme > Style.
+   ====================================================================================== */
+[data-style="classic"] body {
+  background:
+    radial-gradient(ellipse 80% 40% at 15% -5%, rgb(var(--aura1) / .22), transparent 70%),
+    radial-gradient(ellipse 70% 35% at 95% 105%, rgb(var(--aura2) / .16), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+[data-style="classic"] body::before, [data-style="classic"] body::after { display: none; }
+[data-style="classic"] h1, [data-style="classic"] h2, [data-style="classic"] .font-display, [data-style="classic"] .glow-text, [data-style="classic"] .sys-window dd { font-family: var(--font-sys); }
+[data-style="classic"] .sys-window {
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line);
+  box-shadow: 0 0 18px rgb(var(--glow) / .18), inset 0 0 20px rgb(var(--glow) / .05);
+  animation: sys-pulse-classic 5s ease-in-out infinite;
+}
+@keyframes sys-pulse-classic {
+  0%, 100% { box-shadow: 0 0 14px rgb(var(--glow) / .16), inset 0 0 20px rgb(var(--glow) / .05); }
+  50% { box-shadow: 0 0 26px rgb(var(--glow) / .34), inset 0 0 26px rgb(var(--glow) / .09); }
+}
+/* the thin gradient light along the top edge instead of corner brackets */
+[data-style="classic"] .sys-window::before {
+  inset: auto; left: 12px; right: 12px; top: -1px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent); opacity: .9; filter: none;
+}
+[data-style="classic"] .sys-window::after { display: none; }
+[data-style="classic"] .sys-title { display: block; font-weight: 400; font-size: .72rem; letter-spacing: .18em; text-shadow: none; }
+[data-style="classic"] .sys-title::after { display: none; }
+[data-style="classic"] .glow-text { text-shadow: 0 0 12px rgb(var(--glow) / .7), 0 0 28px rgb(var(--glow) / .35); }
+[data-style="classic"] [role="progressbar"] { height: .75rem; border-radius: 9999px; box-shadow: none; }
+[data-style="classic"] .bar-fill { border-radius: 9999px; background: var(--bar); box-shadow: 0 0 8px var(--bar); }
+[data-style="classic"] .bar-fill::after { display: none; }
+[data-style="classic"] .rank-wrap { filter: none; }
+[data-style="classic"] .rank-badge { clip-path: none; border-radius: 9999px; background: transparent; border: 2px solid var(--accent); width: 4rem; height: 4rem; }
+[data-style="classic"] .rank-badge::before { display: none; }
+[data-style="classic"] .rank-badge > span { font-family: var(--font-sys); font-size: 1.875rem; color: var(--text); text-shadow: 0 0 12px rgb(var(--glow) / .7); }
+[data-style="classic"] .btn-primary { background-image: none; background-color: var(--accent); box-shadow: none; text-transform: none; letter-spacing: normal; font-weight: 600; border-radius: .5rem; }
+[data-style="classic"] .btn-ghost { border-radius: .5rem; }
+[data-style="classic"] .nav-glow { box-shadow: none; background: color-mix(in srgb, var(--panel) 95%, transparent); }
+[data-style="classic"] .nav-active::before { display: none; }
+[data-style="classic"] .fx { display: none; }
+[data-style="classic"][data-theme="minimal"] .sys-window { animation: none; box-shadow: none; }

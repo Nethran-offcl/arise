@@ -12,10 +12,10 @@ function Fx() {
   const fade = 'radial-gradient(circle, #000 0%, transparent 48%)';
   return (
     <>
-      <motion.div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-[150vmax] w-[150vmax] -translate-x-1/2 -translate-y-1/2"
+      <motion.div aria-hidden className="fx pointer-events-none absolute left-1/2 top-1/2 h-[150vmax] w-[150vmax] -translate-x-1/2 -translate-y-1/2"
         style={{ background: ray, WebkitMaskImage: fade, maskImage: fade }} animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 50, ease: 'linear' }} />
       {Array.from({ length: 18 }).map((_, i) => (
-        <motion.span key={i} aria-hidden className="pointer-events-none absolute text-accent" style={{ left: `${(i * 53) % 100}%`, bottom: '-4%', fontSize: 8 + (i % 4) * 4 }}
+        <motion.span key={i} aria-hidden className="fx pointer-events-none absolute text-accent" style={{ left: `${(i * 53) % 100}%`, bottom: '-4%', fontSize: 8 + (i % 4) * 4 }}
           initial={{ y: 0, opacity: 0 }} animate={{ y: '-115vh', opacity: [0, 1, 0] }} transition={{ duration: 4 + (i % 5), delay: (i % 7) * 0.4, repeat: Infinity, ease: 'easeOut' }}>✦</motion.span>
       ))}
     </>

@@ -6,7 +6,7 @@ import { btnGhost, btnPrimary, Field, inputCls, Segmented } from '../components/
 import { renamePlayer } from '../game/actions';
 import { useProgress } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
-import { useUI, type Theme } from '../store/ui';
+import { useUI, type Theme, type UIStyle } from '../store/ui';
 
 const themes: { id: Theme; label: string; colors: [string, string] }[] = [
   { id: 'system', label: 'System Blue', colors: ['#4aa3ff', '#7a8bff'] },
@@ -20,7 +20,7 @@ const themes: { id: Theme; label: string; colors: [string, string] }[] = [
 ];
 
 export default function Profile() {
-  const { theme, setTheme } = useUI();
+  const { theme, setTheme, style, setStyle } = useUI();
   const p = useProgress();
   const say = useCelebrate((s) => s.say);
   const [name, setName] = useState('');
@@ -46,6 +46,12 @@ export default function Profile() {
       </SystemWindow>
 
       <SystemWindow title="Theme">
+        <p className="mb-1 text-xs uppercase tracking-wider text-muted">Style</p>
+        <div className="mb-4">
+          <Segmented<UIStyle> label="Style" value={style} onChange={setStyle} options={[{ id: 'solo', label: '⚡ Solo Leveling HUD' }, { id: 'classic', label: 'Classic' }]} />
+          <p className="mt-1 text-xs text-muted">{style === 'solo' ? 'Glowing HUD windows, light rays and a futuristic font.' : 'The calmer original look, with the same colours.'}</p>
+        </div>
+        <p className="mb-1 text-xs uppercase tracking-wider text-muted">Colours</p>
         {(() => {
           const MAIN: Theme[] = ['system', 'monarch', 'minimal'];
           const btn = (t: (typeof themes)[number]) => (

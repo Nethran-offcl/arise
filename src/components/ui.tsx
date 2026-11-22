@@ -6,7 +6,7 @@ export function Bar({ value, max, color = 'var(--accent)', label }: { value: num
   return (
     <div role="progressbar" aria-label={label} aria-valuenow={Math.round(value)} aria-valuemin={0} aria-valuemax={max}
       className="h-3.5 w-full overflow-hidden rounded-sm border border-line bg-black/60 shadow-[inset_0_1px_3px_rgb(0_0_0/.7)]">
-      <div className="bar-fill h-full rounded-sm transition-all duration-500" style={{ width: `${pct}%`, background: `linear-gradient(90deg, color-mix(in srgb, ${color} 55%, #000), ${color})`, boxShadow: `0 0 10px ${color}, 0 0 20px color-mix(in srgb, ${color} 50%, transparent)` }} />
+      <div className="bar-fill h-full rounded-sm transition-all duration-500" style={{ width: `${pct}%`, '--bar': color } as React.CSSProperties} />
     </div>
   );
 }
@@ -43,8 +43,8 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
 }
 
 export const inputCls = 'w-full min-h-11 rounded-lg border border-line bg-black/40 px-3 text-ink';
-export const btnPrimary = 'min-h-12 w-full rounded-md bg-gradient-to-r from-accent to-accent2 px-4 font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgb(var(--glow)/.5)] transition active:scale-[.98]';
-export const btnGhost = 'min-h-11 rounded-md border border-line px-4 text-ink transition hover:border-accent active:bg-accent/10';
+export const btnPrimary = 'btn-primary min-h-12 w-full rounded-md bg-gradient-to-r from-accent to-accent2 px-4 font-bold uppercase tracking-wider text-black shadow-[0_0_20px_rgb(var(--glow)/.5)] transition active:scale-[.98]';
+export const btnGhost = 'btn-ghost min-h-11 rounded-md border border-line px-4 text-ink transition hover:border-accent active:bg-accent/10';
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
