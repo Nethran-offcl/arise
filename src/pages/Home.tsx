@@ -5,7 +5,7 @@ import { SystemWindow } from '../components/SystemWindow';
 import { rankInfoForLevel, RANKS } from '../engine/ranks';
 import { setHp, setMode } from '../game/actions';
 import { dayKey, daysBetween } from '../engine/streak';
-import { useMode, useModeDay, useProgress, useRecentLogs, useStreak } from '../hooks';
+import { useBackupDue, useMode, useModeDay, useProgress, useRecentLogs, useStreak } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 
 const MODE_TEXT = {
@@ -19,6 +19,7 @@ export default function Home() {
   const mode = useMode();
   const streak = useStreak();
   const modeDay = useModeDay();
+  const backupDue = useBackupDue();
   const recent = useRecentLogs(3);
   const say = useCelebrate((s) => s.say);
 
@@ -66,6 +67,12 @@ export default function Home() {
             return ` Day ${n}.${n > 7 ? ' Feeling better? Switch back to Normal when you are ready.' : ''}`;
           })()}
         </p>
+      )}
+
+      {backupDue && (
+        <Link to="/settings" className="sys-window block p-3 text-sm text-accent">
+          [SYSTEM] Your data lives only on this phone. Tap to save a backup file.
+        </Link>
       )}
 
       <SystemWindow title="Today">

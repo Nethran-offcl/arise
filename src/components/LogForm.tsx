@@ -40,6 +40,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
   const [when, setWhen] = useState(toLocalInput(existing?.ts ?? Date.now()));
   const [note, setNote] = useState(existing?.note ?? '');
   const [busy, setBusy] = useState(false);
+  const [confirmBig, setConfirmBig] = useState(false);
   // Progress tracking: pace presets ask for total minutes; others ask for a number directly.
   const initialPerf = existing?.perf ? String(preset.perf?.kind === 'pace' ? Math.round(existing.perf * existing.qty * 10) / 10 : existing.perf) : '';
   const [perfInput, setPerfInput] = useState(initialPerf);
@@ -48,6 +49,8 @@ export function LogForm({ preset, existing, onDone }: Props) {
 
   const maxQ = maxQtyFor(preset.unit);
   const q = Math.min(maxQ, Math.max(0, Number(qty) || 0));
+  // Not a limit, just a typo check: far bigger than anything you've logged before needs a tick.
+  const bigJump = !!prog?.maxQty && q > 3 * prog.maxQty && !(existing && q <= existing.qty);
   const hasQty = preset.unit !== 'none';
   const perfNum = Number(perfInput) || 0;
   // Pace = minutes per km; everything else is used as typed.
@@ -109,6 +112,12 @@ export function LogForm({ preset, existing, onDone }: Props) {
           {Number(qty) > maxQ && <span className="mt-1 block text-xs text-red-300">Max {maxQ} per log. Counted as {maxQ}.</span>}
         </Field>
       )}
+      {hasQty && bigJump && (
+        <label className="flex items-start gap-3 rounded-lg border border-accent p-3 text-sm">
+          <input type="checkbox" className="mt-1 h-5 w-5" checked={confirmBig} onChange={(e) => setConfirmBig(e.target.checked)} />
+          <span>That is more than 3x your biggest {preset.name.toLowerCase()} so far ({prog?.maxQty}). Tick to confirm it is correct. Nothing is capped, this only catches typos.</span>
+        </label>
+      )}
       {!preset.isPenalty && (
         <Segmented label="Intensity" value={intensity} onChange={setIntensity}
           options={[{ id: 'light', label: 'Light' }, { id: 'normal', label: 'Normal' }, { id: 'hard', label: 'Hard' }]} />
@@ -129,7 +138,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
         <p className="text-accent">{preview.main}</p>
         {preview.detail && <p className="mt-1 text-xs text-muted">{preview.detail}</p>}
       </div>
-      <button className={btnPrimary} disabled={busy} onClick={save}>{existing ? 'Save changes' : preset.isPenalty ? 'Log it' : 'Complete'}</button>
+      <button className={btnPrimary} disabled={busy || (hasQty && bigJump && !confirmBig)} onClick={save}>{existing ? 'Save changes' : preset.isPenalty ? 'Log it' : 'Complete'}</button>
       {existing?.id && (
         <button className={`${btnGhost} w-full text-red-300`} onClick={async () => {
           if (confirm('Delete this log? Its XP, gold and stat gains will be removed.')) {

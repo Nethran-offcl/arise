@@ -8,6 +8,7 @@ import { setDayStartHour } from '../engine/streak';
 import { DEFAULT_FORMULA, describeFormula, sanitizeFormula, type Difficulty, type Formula } from '../engine/formula';
 import { DEFAULT_DAILY_RECOVERY, DEFAULT_DAY_START_HOUR, resetAllData } from '../game/actions';
 import { seedDemo, wipeDemo } from '../game/demo';
+import { downloadBackup, restoreBackup, shareBackup } from '../game/backup';
 import { useFormula } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 
@@ -16,6 +17,7 @@ export default function Settings() {
   const say = useCelebrate((s) => s.say);
   const [busy, setBusy] = useState(false);
   const dayStart = useLiveQuery(() => getSetting<number>('dayStartHour', DEFAULT_DAY_START_HOUR), [], DEFAULT_DAY_START_HOUR);
+  const lastBackup = useLiveQuery(() => getSetting<number | null>('lastBackup', null), [], null);
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [usedMb, setUsedMb] = useState<string>('');
   useEffect(() => {
@@ -66,7 +68,32 @@ export default function Settings() {
         {persisted === false && (
           <button className={`${btnGhost} mt-2 w-full`} onClick={async () => { const ok = await requestPersistence(); setPersisted(ok); say(ok ? '[SYSTEM] Data is now protected.' : '[SYSTEM] Chrome declined. Installing the app to your home screen usually fixes this.'); }}>Protect my data</button>
         )}
-        <p className="mt-2 text-xs text-muted">Backup and restore (export/import) arrive in Phase 7. Until then, don't clear Chrome's site data for this app.</p>
+        <p className="mt-2 text-xs text-muted">This protects against automatic cleanup only. Clearing Chrome's site data or uninstalling the app still erases it, so keep a backup file.</p>
+      </SystemWindow>
+
+      <SystemWindow title="Backup & restore">
+        <p className="mb-2 text-sm text-muted">
+          Your data is a plain file you own. Save it to Files, Google Drive or email it to yourself, and restore it on any phone.
+          Last backup: <b className="text-ink">{lastBackup ? new Date(lastBackup).toLocaleString() : 'never'}</b>
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <button className={btnGhost} onClick={async () => { const n = await downloadBackup(); say(`[SYSTEM] Saved ${n} to your Downloads.`); }}>Save backup file</button>
+          <button className={btnGhost} onClick={async () => {
+            try { say((await shareBackup()) ? '[SYSTEM] Backup shared.' : '[SYSTEM] Sharing is not available here. Use Save backup file.'); }
+            catch { /* share sheet closed */ }
+          }}>Share backup</button>
+        </div>
+        <label className={`${btnGhost} mt-2 flex w-full cursor-pointer items-center justify-center`}>
+          Restore from backup file
+          <input type="file" accept="application/json,.json" className="sr-only" onChange={async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (!file) return;
+            if (!confirm('Restore this backup? Everything currently on this phone will be REPLACED by the file contents.')) return;
+            try { const r = await restoreBackup(await file.text()); say(`[SYSTEM] Restored ${r.logs} logs.`); }
+            catch (err) { say(`[SYSTEM] ${(err as Error).message}`); }
+          }} />
+        </label>
       </SystemWindow>
 
       <SystemWindow title="XP formula">
@@ -77,7 +104,7 @@ export default function Settings() {
           {numField('XP multiplier', formula.xpMult, (n) => ({ ...formula, xpMult: n }))}
           {numField('Gold multiplier', formula.goldMult, (n) => ({ ...formula, goldMult: n }))}
           {numField('Stat rate', formula.statRate, (n) => ({ ...formula, statRate: n }), 0.005)}
-          {numField('Max XP / log', formula.maxXpPerLog, (n) => ({ ...formula, maxXpPerLog: n }), 10)}
+          {numField('Safety cap: XP / log', formula.maxXpPerLog, (n) => ({ ...formula, maxXpPerLog: n }), 1000)}
           {numField('Light intensity', formula.intensity.light, (n) => ({ ...formula, intensity: { ...formula.intensity, light: n } }))}
           {numField('Normal intensity', formula.intensity.normal, (n) => ({ ...formula, intensity: { ...formula.intensity, normal: n } }))}
           {numField('Hard intensity', formula.intensity.hard, (n) => ({ ...formula, intensity: { ...formula.intensity, hard: n } }))}
@@ -104,7 +131,6 @@ export default function Settings() {
             say('[SYSTEM] All data reset.');
           }
         }}>Reset all data</button>
-        <p className="mt-2 text-xs text-muted">Backup export/import arrives in Phase 7.</p>
       </SystemWindow>
     </div>
   );

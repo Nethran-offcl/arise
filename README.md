@@ -50,3 +50,8 @@ Every `git push` to `main` redeploys automatically.
 - Every reward is multiplied by your level, so the same effort pays more as levels cost more. A normal day always moves you the same distance through a level.
 - Progress bonuses add on top: run faster / lift heavier / play better than your starting level (up to +75%), new personal records (+15%), and category mastery (+2% per mastery level, up to +30%).
 - A slower or lighter day never costs XP. Gold is not level-scaled, so shop prices stay meaningful.
+
+## Where your data lives
+
+All data is stored on your phone, inside the browser engine that runs the app (IndexedDB). Nothing is sent to GitHub or any server. The app never needs an account.
+It is erased if you clear Chrome's site data, uninstall the app, or lose the phone, so use Settings > Backup & restore to save a plain JSON file (to Files, Drive or email) and restore it on any device or URL.

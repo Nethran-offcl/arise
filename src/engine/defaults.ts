@@ -3,9 +3,8 @@ import type { Category, Preset, UnitKind, Weights } from './types';
 
 /** Starter categories. Everything here can be edited, and you can add your own. */
 export const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cardio', name: 'Cardio', icon: '🏃', weights: { AGI: 1 }, kind: 'task', order: 1 },
+  { id: 'cardio', name: 'Cardio & Sports', icon: '🏃', weights: { AGI: 1 }, kind: 'task', order: 1 },
   { id: 'strength', name: 'Strength', icon: '🏋️', weights: { STR: 1 }, kind: 'task', order: 2 },
-  { id: 'sports', name: 'Sports', icon: '🏸', weights: { AGI: 0.6, STR: 0.4 }, kind: 'task', order: 3 },
   { id: 'study', name: 'Study', icon: '📚', weights: { INT: 1 }, kind: 'task', order: 4 },
   { id: 'work', name: 'Work', icon: '💼', weights: { DIS: 0.8, INT: 0.2 }, kind: 'task', order: 5 },
   { id: 'tasks', name: 'Tasks & Chores', icon: '🧹', weights: { DIS: 1 }, kind: 'task', order: 6 },
@@ -33,6 +32,8 @@ interface P {
 const PACE: PerfSpec = { kind: 'pace', label: 'Total time (minutes)', unit: 'min/km' };
 const LIFT: PerfSpec = { kind: 'higher', label: 'Heaviest weight lifted (kg)', unit: 'kg' };
 const PLAY: PerfSpec = { kind: 'higher', label: 'How well did you play? (1-10, honest rating)', unit: '/10' };
+
+const SPORT_SPLIT: Weights = { AGI: 0.6, STR: 0.4 };
 
 const task = (p: P): Preset => ({
   id: p.id,
@@ -85,10 +86,10 @@ export const DEFAULT_PRESETS: Preset[] = [
   // Strength (STR)
   task({ id: 'gym', c: 'strength', n: 'Gym session', u: 'minutes', q: 45, b: 10, x: 0.9, g: 5, gu: 0.3, hpu: -0.2, perf: LIFT }),
   task({ id: 'bodyweight', c: 'strength', n: 'Bodyweight reps', u: 'count', q: 20, x: 0.5, gu: 0.2 }),
-  // Sports (AGI + STR)
-  task({ id: 'badminton', c: 'sports', n: 'Badminton', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY }),
-  task({ id: 'basketball', c: 'sports', n: 'Basketball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY }),
-  task({ id: 'volleyball', c: 'sports', n: 'Volleyball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY }),
+  // Sports now live in Cardio & Sports (one shared mastery). They split their stat gain between AGI and STR.
+  task({ id: 'badminton', c: 'cardio', n: 'Badminton', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY, w: SPORT_SPLIT }),
+  task({ id: 'basketball', c: 'cardio', n: 'Basketball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY, w: SPORT_SPLIT }),
+  task({ id: 'volleyball', c: 'cardio', n: 'Volleyball', u: 'minutes', q: 60, b: 5, x: 0.9, gu: 0.3, hpu: -0.15, perf: PLAY, w: SPORT_SPLIT }),
   // Study (INT)
   task({ id: 'study', c: 'study', n: 'Study session', u: 'hours', q: 1, x: 40, gu: 10 }),
   task({ id: 'assignment', c: 'study', n: 'Finish assignment', u: 'count', q: 1, x: 60, gu: 25 }),

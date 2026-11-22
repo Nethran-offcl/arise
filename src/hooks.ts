@@ -13,6 +13,13 @@ export const useCategories = () => useLiveQuery(() => db.categories.orderBy('ord
 export const usePresets = () => useLiveQuery(() => db.presets.toArray(), [], []);
 export const useFormula = (): Formula => useLiveQuery(getFormula, [], DEFAULT_FORMULA);
 export const useMode = (): PlayMode => useLiveQuery(() => getSetting<PlayMode>('mode', 'normal'), [], 'normal');
+/** True when you have real data but no recent backup (nudges you on Home; no notifications). */
+export const useBackupDue = (): boolean =>
+  useLiveQuery(async () => {
+    if ((await db.logs.count()) < 5) return false;
+    const last = await getSetting<number | null>('lastBackup', null);
+    return !last || Date.now() - last > 14 * 86_400_000;
+  }, [], false);
 export const useModeDay = () => useLiveQuery(() => getSetting<string | null>('modeDay', null), [], null);
 export const useRecentLogs = (n = 40) => useLiveQuery(() => db.logs.orderBy('ts').reverse().limit(n).toArray(), [n], []);
 

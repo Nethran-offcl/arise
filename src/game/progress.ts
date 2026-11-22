@@ -5,6 +5,8 @@ export interface ProgressInputs {
   perfValues: number[];
   /** Effort XP already earned in this category (drives mastery). */
   categoryEffort: number;
+  /** Your biggest earlier amount for this task (e.g. longest run), to spot typos like 20 instead of 2. */
+  maxQty: number;
 }
 
 /** Reads what the progress bonuses need. `excludeLogId` is used when editing a log. */
@@ -19,5 +21,6 @@ export async function loadProgressInputs(presetId: string, categoryId: string, e
   const categoryEffort = catLogs
     .filter((l) => !l.isPenalty && l.id !== excludeLogId)
     .reduce((sum, l) => sum + (l.effortXp ?? l.xp), 0);
-  return { perfValues, categoryEffort };
+  const maxQty = presetLogs.filter((l) => l.id !== excludeLogId && !l.isPenalty).reduce((m, l) => Math.max(m, l.qty), 0);
+  return { perfValues, categoryEffort, maxQty };
 }

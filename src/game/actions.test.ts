@@ -5,6 +5,8 @@ import { levelFromXp, xpAtLevelStart } from '../engine/levels';
 import { applyDailyRecovery, deleteLog, ensureSeed, expireRestMode, getMode, logActivity, resetAllData, setHp, setMode, spendStatPoint, updateLog } from './actions';
 import { setSetting } from '../db/db';
 import { seedDemo, wipeDemo } from './demo';
+import { buildBackup, parseBackup, restoreBackup } from './backup';
+import { mergeSportsIntoCardio } from './actions';
 
 const base = { qty: 3, intensity: 'normal' as const, ts: Date.now() };
 
@@ -152,7 +154,7 @@ describe('long-term sustainability', () => {
     const log = (await db.logs.get(r.logId))!;
     expect(log.qty).toBe(250);
     expect(log.ts).toBeLessThanOrEqual(Date.now() + 5 * 60_000 + 50);
-    expect(log.xp).toBe(1000); // effort capped
+    expect(log.xp).toBe(7510); // 10 + 30 x 250 km: nothing is capped, only the amount is limited
   });
 
   it('penalty quests only refund the XP the penalty took (never a net gain)', async () => {
@@ -191,6 +193,86 @@ describe('long-term sustainability', () => {
     const typo = await logActivity({ ...base, presetId: 'run', perf: 2 });
     expect(typo.pr).toBe(false);
     expect(typo.perfBonus).toBe(0);
+  });
+});
+
+describe('caps never block real efforts', () => {
+  it('2 km one day and 20 km the next are both paid in full', async () => {
+    const a = await logActivity({ ...base, qty: 2, presetId: 'run', ts: base.ts - 90_000 });
+    const b = await logActivity({ ...base, qty: 20, presetId: 'run' });
+    expect(a.xp).toBe(70); // 10 + 30 x 2
+    expect(b.xp).toBe(610); // 10 + 30 x 20, paid in full
+  });
+  it('a hard 20 km personal record with the biggest bonuses is not capped', async () => {
+    let i = 0;
+    for (let k = 0; k < 3; k++) await logActivity({ ...base, ts: base.ts - 50_000 + i++ * 1000, presetId: 'run', qty: 5, perf: 7 });
+    const r = await logActivity({ ...base, presetId: 'run', qty: 20, intensity: 'hard', perf: 4.8 });
+    expect(r.pr).toBe(true);
+    // 610 raw x 1.3 hard x (1 + 0.84 progress bonus) x 1.02 mastery = 1486, above the old 1000 cap
+    expect(r.xp).toBe(1486);
+  });
+});
+
+describe('Cardio and Sports are one category', () => {
+  it('fresh installs have no separate Sports category and sports tasks live in Cardio', async () => {
+    expect(await db.categories.get('sports')).toBeUndefined();
+    expect((await db.categories.get('cardio'))!.name).toBe('Cardio & Sports');
+    const bad = (await db.presets.get('badminton'))!;
+    expect(bad.categoryId).toBe('cardio');
+    expect(bad.weights).toEqual({ AGI: 0.6, STR: 0.4 });
+  });
+  it('migrates an existing install: presets, logs and mastery all move together', async () => {
+    await logActivity({ ...base, presetId: 'run' });
+    await db.categories.put({ id: 'sports', name: 'Sports', icon: '🏸', weights: { AGI: 0.6, STR: 0.4 }, kind: 'task', order: 3 });
+    await db.categories.update('cardio', { name: 'Cardio' });
+    await db.presets.update('badminton', { categoryId: 'sports', weights: undefined });
+    await db.presets.put({ ...(await db.presets.get('badminton'))!, id: 'custom-squash', name: 'Squash', builtin: false });
+    const sportLog = await logActivity({ ...base, presetId: 'badminton', qty: 60 });
+    await db.logs.update(sportLog.logId, { categoryId: 'sports' });
+    await setSetting('seedVersion', 3);
+    await ensureSeed();
+    expect(await db.categories.get('sports')).toBeUndefined();
+    expect((await db.categories.get('cardio'))!.name).toBe('Cardio & Sports');
+    expect((await db.presets.get('badminton'))!.categoryId).toBe('cardio');
+    expect((await db.presets.get('badminton'))!.weights).toEqual({ AGI: 0.6, STR: 0.4 });
+    expect((await db.presets.get('custom-squash'))!.categoryId).toBe('cardio');
+    expect((await db.logs.get(sportLog.logId))!.categoryId).toBe('cardio');
+    await mergeSportsIntoCardio(); // running it again changes nothing
+  });
+  it('sports and running now share mastery', async () => {
+    await logActivity({ ...base, presetId: 'run', qty: 12 }); // 370 effort
+    const r = await logActivity({ ...base, presetId: 'badminton', qty: 60 }); // 59 effort, mastery lvl 1 from the run
+    expect(r.xp).toBe(Math.round(59 * 1.02)); // sports pay the +2% earned by running
+  });
+});
+
+describe('backup and restore', () => {
+  it('round-trips everything through a plain JSON file', async () => {
+    await logActivity({ ...base, presetId: 'run', qty: 5, perf: 7 });
+    await logActivity({ ...base, presetId: 'study', qty: 2 });
+    await setSetting('theme', 'monarch');
+    await setHp(55);
+    const before = (await db.profile.get(1))!;
+    const text = JSON.stringify(await buildBackup());
+    await resetAllData();
+    expect(await db.logs.count()).toBe(0);
+    const r = await restoreBackup(text);
+    expect(r.logs).toBe(2);
+    const after = (await db.profile.get(1))!;
+    expect(after.totalXp).toBe(before.totalXp);
+    expect(after.hp).toBe(55);
+    expect(after.stats).toEqual(before.stats);
+    expect(await db.logs.count()).toBe(2);
+    expect((await db.settings.get('theme'))!.value).toBe('monarch');
+  });
+  it('rejects bad files without touching your data', async () => {
+    await logActivity({ ...base, presetId: 'run' });
+    const xp = (await db.profile.get(1))!.totalXp;
+    await expect(restoreBackup('not json at all')).rejects.toThrow(/not a valid backup/);
+    await expect(restoreBackup(JSON.stringify({ app: 'something-else', version: 1 }))).rejects.toThrow(/not an ARISE backup/);
+    await expect(restoreBackup(JSON.stringify({ app: 'arise', version: 99, exportedAt: 1, tables: {} }))).rejects.toThrow();
+    expect(() => parseBackup('{}')).toThrow();
+    expect((await db.profile.get(1))!.totalXp).toBe(xp);
   });
 });
 

@@ -12,8 +12,13 @@ import { STAT_KEYS } from '../engine/types';
 /** The tables a game action may touch (used for atomic transactions). */
 const tables = () => [db.profile, db.logs, db.settings, db.presets, db.categories];
 
-export const getFormula = async (): Promise<Formula> =>
-  sanitizeFormula({ ...DEFAULT_FORMULA, ...(await getSetting<Partial<Formula>>('formula', {})) });
+export const getFormula = async (): Promise<Formula> => {
+  const stored = await getSetting<Partial<Formula>>('formula', {});
+  // Older versions saved low per-log caps (500/1000 XP, 300 gold) that could block big efforts. Ignore those.
+  if (stored.maxXpPerLog === 500 || stored.maxXpPerLog === 1000) delete stored.maxXpPerLog;
+  if (stored.maxGoldPerLog === 300) delete stored.maxGoldPerLog;
+  return sanitizeFormula({ ...DEFAULT_FORMULA, ...stored });
+};
 export const getMode = () => getSetting<PlayMode>('mode', 'normal');
 
 /** Inserts the starter categories/presets the first time the app runs. */
@@ -22,7 +27,7 @@ export async function ensureSeed(): Promise<void> {
   await ensureProfile();
   if ((await db.categories.count()) === 0) await db.categories.bulkPut(DEFAULT_CATEGORIES);
   if ((await db.presets.count()) === 0) await db.presets.bulkPut(DEFAULT_PRESETS);
-  await migrateBuiltinHp();
+  await migrateSeed();
   await expireRestMode();
   await touchPausedDay();
   await applyDailyRecovery();
@@ -57,14 +62,40 @@ export async function setHp(hp: number): Promise<void> {
   await db.profile.update(1, { hp: Math.round(Math.min(p.maxHp, Math.max(0, hp))) });
 }
 
-/** Seed v3: built-in presets get HP scaling and progress tracking. Only touches those fields of built-ins. */
-async function migrateBuiltinHp(): Promise<void> {
-  if ((await getSetting<number>('seedVersion', 1)) >= 3) return;
-  for (const d of DEFAULT_PRESETS) {
-    const existing = await db.presets.get(d.id);
-    if (existing?.builtin) await db.presets.update(d.id, { hpDelta: d.hpDelta, hpPerUnit: d.hpPerUnit ?? 0, perf: d.perf });
+/**
+ * One-time data migrations, tracked by the `seedVersion` setting so they never run twice.
+ *  v3: built-in presets get HP scaling and progress tracking.
+ *  v4: Sports merged into Cardio & Sports (presets, logs and mastery all move together).
+ */
+export const SEED_VERSION = 4;
+async function migrateSeed(): Promise<void> {
+  const v = await getSetting<number>('seedVersion', 1);
+  if (v >= SEED_VERSION) return;
+  if (v < 3) {
+    for (const d of DEFAULT_PRESETS) {
+      const existing = await db.presets.get(d.id);
+      if (existing?.builtin) await db.presets.update(d.id, { hpDelta: d.hpDelta, hpPerUnit: d.hpPerUnit ?? 0, perf: d.perf });
+    }
   }
-  await setSetting('seedVersion', 3);
+  if (v < 4) await mergeSportsIntoCardio();
+  await setSetting('seedVersion', SEED_VERSION);
+}
+
+export async function mergeSportsIntoCardio(): Promise<void> {
+  await db.transaction('rw', [db.presets, db.logs, db.categories], async () => {
+    const sports = await db.categories.get('sports');
+    if (!sports) return;
+    // Sports tasks keep their AGI/STR split even though they now share the Cardio category.
+    for (const p of await db.presets.where('categoryId').equals('sports').toArray()) {
+      await db.presets.update(p.id, { categoryId: 'cardio', weights: p.weights ?? sports.weights });
+    }
+    for (const l of await db.logs.where('categoryId').equals('sports').toArray()) {
+      await db.logs.update(l.id!, { categoryId: 'cardio' });
+    }
+    await db.categories.delete('sports');
+    const cardio = await db.categories.get('cardio');
+    if (cardio && cardio.name === 'Cardio') await db.categories.update('cardio', { name: 'Cardio & Sports' });
+  });
 }
 
 /** While Rest/Sick mode is on, today is recorded as a paused day (it never breaks streaks). */

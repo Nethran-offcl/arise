@@ -30,8 +30,9 @@ export const DEFAULT_FORMULA: Formula = {
   difficulty: 'normal',
   difficultyReward: { easy: 0.9, normal: 1, hard: 1.15 },
   difficultyPenalty: { easy: 0.5, normal: 1, hard: 1.25 },
-  maxXpPerLog: 1000,
-  maxGoldPerLog: 300,
+  // Safety nets only: far above any real effort. Typos are caught by the amount limits and the "are you sure" check.
+  maxXpPerLog: 20000,
+  maxGoldPerLog: 2000,
 };
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : lo));
@@ -54,8 +55,8 @@ export function sanitizeFormula(f: Formula): Formula {
       normal: clamp(f.fatigue.normal, 0, 5),
       hard: clamp(f.fatigue.hard, 0, 5),
     },
-    maxXpPerLog: clamp(f.maxXpPerLog, 10, 5000),
-    maxGoldPerLog: clamp(f.maxGoldPerLog, 0, 5000),
+    maxXpPerLog: clamp(f.maxXpPerLog, 10, 1_000_000),
+    maxGoldPerLog: clamp(f.maxGoldPerLog, 0, 100_000),
   };
 }
 
