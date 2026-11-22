@@ -10,6 +10,7 @@ const UNITS: { id: UnitKind; label: string; word: string; typical: number }[] = 
   { id: 'minutes', label: 'By minutes', word: 'minute', typical: 30 },
   { id: 'hours', label: 'By hours', word: 'hour', typical: 1 },
   { id: 'km', label: 'By kilometres', word: 'km', typical: 3 },
+  { id: 'liters', label: 'By litres', word: 'litre', typical: 1 },
   { id: 'count', label: 'By count (reps, tasks...)', word: 'one', typical: 1 },
 ];
 

@@ -70,8 +70,9 @@ export async function setHp(hp: number): Promise<void> {
  *  v4: Sports merged into Cardio & Sports (presets, logs and mastery all move together).
  *  v5: "Mind" becomes "Core" (free-form, no mastery) and gains Meditation and Learning tasks.
  *  v6: adds the hidden "Daily quests missed" penalty used by the quest system.
+ *  v7: water is measured in litres (2 L a day) and sleep gets a reward cap.
  */
-export const SEED_VERSION = 6;
+export const SEED_VERSION = 7;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -83,6 +84,7 @@ async function migrateSeed(): Promise<void> {
   }
   if (v < 4) await mergeSportsIntoCardio();
   if (v < 5) await mindToCore();
+  if (v < 7) await waterAndSleep();
   if (v < 6 && !(await db.presets.get('p-quests'))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === 'p-quests')!);
   await setSetting('seedVersion', SEED_VERSION);
 }
@@ -101,6 +103,25 @@ export async function mergeSportsIntoCardio(): Promise<void> {
     await db.categories.delete('sports');
     const cardio = await db.categories.get('cardio');
     if (cardio && cardio.name === 'Cardio') await db.categories.update('cardio', { name: 'Cardio & Sports' });
+  });
+}
+
+/** v7: water becomes litres (1 old glass = 0.25 L) and sleep gets a 9 h reward cap. */
+export async function waterAndSleep(): Promise<void> {
+  await db.transaction('rw', [db.presets, db.logs, db.questTemplates], async () => {
+    const water = await db.presets.get('water');
+    if (water?.builtin && water.unit !== 'liters') {
+      const d = DEFAULT_PRESETS.find((x) => x.id === 'water')!;
+      await db.presets.update('water', { unit: 'liters', defaultQty: d.defaultQty, baseXp: 0, xpPerUnit: d.xpPerUnit, baseGold: 0, goldPerUnit: d.goldPerUnit, hpDelta: 0, hpPerUnit: d.hpPerUnit, rewardCap: d.rewardCap });
+      for (const l of await db.logs.where('presetId').equals('water').toArray()) {
+        if (l.unit !== 'liters') await db.logs.update(l.id!, { qty: Math.round(l.qty * 0.25 * 100) / 100, unit: 'liters' });
+      }
+      for (const t of await db.questTemplates.toArray()) {
+        if (t.presetId === 'water') await db.questTemplates.update(t.id!, { target: Math.max(0.5, Math.round(t.target * 0.25 * 2) / 2) });
+      }
+    }
+    const sleep = await db.presets.get('sleep-hours');
+    if (sleep?.builtin) await db.presets.update('sleep-hours', { rewardCap: 9, name: 'Sleep' });
   });
 }
 
@@ -163,6 +184,8 @@ export interface LogInput {
   demo?: boolean;
   /** Result for improvement tracking (e.g. pace = minutes / km, or kg lifted). */
   perf?: number;
+  /** Bedtime / wake time for sleep entries. */
+  sleep?: { bed: number; wake: number };
   /** Penalty quests refund at most the XP the penalty took (never a net gain). */
   refundCap?: number;
 }
@@ -262,6 +285,7 @@ async function computeEffects(
     perfBonus: perf.bonus,
     pr: perf.pr,
     effortXp: reward.effortXp,
+    sleep: input.sleep,
     masteryBonus: reward.masteryBonus,
   };
   return { preset, entry };

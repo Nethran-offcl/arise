@@ -14,7 +14,10 @@ export type Stats = Record<StatKey, number>;
 export const emptyStats = (): Stats => ({ STR: 0, AGI: 0, VIT: 0, INT: 0, DIS: 0, SEN: 0 });
 
 export type Weights = Partial<Record<StatKey, number>>;
-export type UnitKind = 'none' | 'count' | 'minutes' | 'hours' | 'km';
+export type UnitKind = 'none' | 'count' | 'minutes' | 'hours' | 'km' | 'liters';
+
+/** Short unit text shown next to amounts. */
+export const UNIT_SHORT: Record<UnitKind, string> = { none: '', count: 'x', minutes: 'min', hours: 'h', km: 'km', liters: 'L' };
 export type Intensity = 'light' | 'normal' | 'hard';
 export type Rank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 export type PlayMode = 'normal' | 'rest' | 'sick';
@@ -55,6 +58,8 @@ export interface Preset {
   goldPerUnit: number;
   /** HP change applied once per log (positive = recovery, negative = fatigue/penalty). */
   hpDelta: number;
+  /** Largest amount that still earns rewards (e.g. 9 hours of sleep, 4 litres of water). More is logged but not rewarded. */
+  rewardCap?: number;
   /** Extra HP change per unit (e.g. -0.2 per minute of gym). Optional for older custom presets. */
   hpPerUnit?: number;
   /** What to track to reward improvement (pace, weight lifted, rating...). */

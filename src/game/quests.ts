@@ -7,6 +7,7 @@ import { applyXpDelta, levelFromXp } from '../engine/levels';
 import { rankInfoForLevel } from '../engine/ranks';
 import { computeStreak, dayKey, dayStartTs, shiftDay, weekStartKey, weekdayOf } from '../engine/streak';
 import type { PlayMode } from '../engine/types';
+import { UNIT_SHORT } from '../engine/types';
 import { getTodayFlags, getSchedule } from './schedule';
 import { doubleXpBoost } from './shop';
 
@@ -190,7 +191,7 @@ export async function ensureQuests(now = Date.now()): Promise<void> {
       // Surprise emergency quest (about 15% of days)
       if (hashString(`${today}|emg`) % 100 < 15 && !(await db.quests.where('key').equals(`emergency:${today}`).first())) {
         const rng = mulberry32(hashString(`${today}|emg2`));
-        const options: [string, number][] = [['walk', 15], ['bodyweight', 20], ['chores', 1], ['water', 3], ['pending', 1]];
+        const options: [string, number][] = [['walk', 15], ['bodyweight', 20], ['chores', 1], ['journal', 1], ['pending', 1]];
         const ids = new Set(presets.map((p) => p.id));
         const usable = options.filter(([id]) => ids.has(id));
         if (usable.length) {
@@ -198,8 +199,8 @@ export async function ensureQuests(now = Date.now()): Promise<void> {
           const p = presets.find((x) => x.id === id)!;
           const target = p.unit === 'none' ? 1 : qty;
           const draft: QuestDraft = {
-            slug: id, title: `Emergency: ${p.name}${p.unit === 'none' ? '' : ` ${target} ${p.unit === 'minutes' ? 'min' : 'x'}`}`, desc: 'A surprise bonus quest. It disappears tonight, no penalty if you skip it.',
-            presetIds: [id], metric: p.unit === 'none' ? 'logs' : 'qty', target, unit: p.unit === 'minutes' ? 'min' : 'x', reward: { presetId: id, qty: target, repeats: 1 },
+            slug: id, title: `Emergency: ${p.name}${p.unit === 'none' ? '' : ` ${target} ${UNIT_SHORT[p.unit]}`}`, desc: 'A surprise bonus quest. It disappears tonight, no penalty if you skip it.',
+            presetIds: [id], metric: p.unit === 'none' ? 'logs' : 'qty', target, unit: UNIT_SHORT[p.unit] || 'x', reward: { presetId: id, qty: target, repeats: 1 },
           };
           await addIfNew(buildQuest(draft, `emergency:${today}`, 'emergency', 'emergency', presets, [dStart, dEnd], now));
         }
@@ -215,7 +216,7 @@ export async function ensureQuests(now = Date.now()): Promise<void> {
       const periodKey = isDaily ? today : wk;
       const draft: QuestDraft = {
         slug: String(t.id), title: t.title, presetIds: [t.presetId], metric: preset.unit === 'none' ? 'logs' : 'qty', target: t.target,
-        unit: preset.unit === 'none' ? 'x' : preset.unit === 'minutes' ? 'min' : preset.unit === 'hours' ? 'h' : preset.unit === 'km' ? 'km' : 'x',
+        unit: UNIT_SHORT[preset.unit] || 'x',
         reward: { presetId: t.presetId, qty: preset.unit === 'none' ? 1 : t.target, repeats: 1 },
       };
       const q = buildQuest(draft, `rec:${t.id}:${periodKey}`, 'custom', 'custom', presets, isDaily ? [dStart, dEnd] : [wStart, wEnd], now, 'active');
@@ -305,7 +306,7 @@ export async function addCustomQuest(input: CustomQuestInput, now = Date.now()):
   const presets = await db.presets.toArray();
   const draft: QuestDraft = {
     slug: 'x', title, presetIds: [input.presetId], metric: preset.unit === 'none' ? 'logs' : 'qty', target,
-    unit: preset.unit === 'minutes' ? 'min' : preset.unit === 'hours' ? 'h' : preset.unit === 'km' ? 'km' : 'x',
+    unit: UNIT_SHORT[preset.unit] || 'x',
     reward: { presetId: input.presetId, qty: preset.unit === 'none' ? 1 : target, repeats: 1 },
   };
   await db.quests.add(buildQuest(draft, `custom:${now}:${Math.floor(Math.random() * 1e6)}`, 'custom', 'custom', presets, period, now, 'active') as Quest);

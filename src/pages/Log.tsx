@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { CategoryForm } from '../components/CategoryForm';
 import { LogForm } from '../components/LogForm';
+import { SleepForm } from '../components/SleepForm';
 import { PresetForm } from '../components/PresetForm';
 import { SystemWindow } from '../components/SystemWindow';
 import { btnGhost, Segmented, Sheet } from '../components/ui';
 import { deleteLog } from '../game/actions';
 import type { LogEntry } from '../db/db';
-import type { Preset } from '../engine/types';
+import { UNIT_SHORT, type Preset } from '../engine/types';
 import { useCategories, usePresets, useRecentLogs } from '../hooks';
 
 type Tab = 'task' | 'penalty';
@@ -21,6 +22,7 @@ export default function Log() {
   const [active, setActive] = useState<Preset | null>(null);
   const [editing, setEditing] = useState<LogEntry | null>(null);
   const [creating, setCreating] = useState(false);
+  const [sleeping, setSleeping] = useState(false);
   const [newCat, setNewCat] = useState(false);
 
   const taskCats = cats.filter((c) => c.kind === 'task');
@@ -33,6 +35,10 @@ export default function Log() {
       <SystemWindow title="Log">
         <Segmented label="Log type" value={tab} onChange={setTab}
           options={[{ id: 'task', label: 'Task done' }, { id: 'penalty', label: 'Course correction' }]} />
+
+        {tab === 'task' && (
+          <button className={`${btnGhost} mt-3 w-full`} onClick={() => setSleeping(true)}>😴 Log last night's sleep</button>
+        )}
 
         {tab === 'task' && (
           <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Categories">
@@ -51,7 +57,7 @@ export default function Log() {
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           {list.map((p) => (
-            <button key={p.id} onClick={() => setActive(p)}
+            <button key={p.id} onClick={() => (p.id === 'sleep-hours' ? setSleeping(true) : setActive(p))}
               className="min-h-14 rounded-lg border border-line bg-black/30 px-3 py-2 text-left text-sm active:border-accent">
               {p.name}
             </button>
@@ -71,7 +77,7 @@ export default function Log() {
             <li key={l.id}>
               <button onClick={() => setEditing(l)} className="flex w-full items-center justify-between gap-2 py-2 text-left">
                 <span>
-                  <span className="block">{l.label}{l.unit !== 'none' && ` · ${l.qty}${l.unit === 'count' ? 'x' : l.unit === 'minutes' ? ' min' : l.unit === 'hours' ? ' h' : ' km'}`}</span>
+                  <span className="block">{l.label}{l.unit !== 'none' && ` · ${l.qty} ${(UNIT_SHORT as Record<string, string>)[l.unit] ?? ''}`}</span>
                   <span className="block text-xs text-muted">{new Date(l.ts).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}{l.paused ? ' · paused' : ''}</span>
                 </span>
                 <span className={l.isPenalty ? 'text-red-300' : 'text-accent'}>{l.xp > 0 ? '+' : ''}{l.xp.toLocaleString()} XP{l.pr ? ' 🏆' : ''}</span>
@@ -82,10 +88,13 @@ export default function Log() {
         {logs.length >= limit && <button className={`${btnGhost} mt-3 w-full`} onClick={() => setLimit(limit + 40)}>Show older logs</button>}
       </SystemWindow>
 
+      {sleeping && <Sheet title="Sleep" onClose={() => setSleeping(false)}><SleepForm onDone={() => setSleeping(false)} /></Sheet>}
       {active && <Sheet title="Log" onClose={() => setActive(null)}><LogForm preset={active} onDone={() => setActive(null)} /></Sheet>}
       {editing && (
         <Sheet title="Edit log" onClose={() => setEditing(null)}>
-          {editingPreset
+          {editing.presetId === 'sleep-hours'
+            ? <SleepForm existing={editing} onDone={() => setEditing(null)} />
+            : editingPreset
             ? <LogForm preset={editingPreset} existing={editing} onDone={() => setEditing(null)} />
             : (
               <div className="space-y-3">

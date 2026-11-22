@@ -61,7 +61,7 @@ export function sanitizeFormula(f: Formula): Formula {
 }
 
 /** Largest believable amount for one log (stops typos like 5000 km from paying out). */
-export const maxQtyFor = (unit: UnitKind): number => ({ none: 1, count: 1000, minutes: 720, hours: 24, km: 250 })[unit];
+export const maxQtyFor = (unit: UnitKind): number => ({ none: 1, count: 1000, minutes: 720, hours: 24, km: 250, liters: 10 })[unit];
 
 export function presetWeights(preset: Preset, categoryWeights: Weights): Weights {
   return preset.weights ?? categoryWeights;
@@ -104,7 +104,8 @@ export interface RewardContext {
  */
 export function computeReward(preset: Preset, qty: number, intensity: Intensity, ctx: RewardContext): Reward {
   const f = ctx.formula;
-  const q = Math.max(0, qty);
+  // Amounts above the preset's reward cap are recorded but don't pay more (sleep 9 h, water 4 L)
+  const q = Math.min(Math.max(0, qty), preset.rewardCap ?? Infinity);
   const scale = levelScale(ctx.level ?? 1);
   const perf = ctx.perfBonus ?? 0;
   const mastery = ctx.masteryBonus ?? 0;

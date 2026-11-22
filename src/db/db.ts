@@ -38,6 +38,8 @@ export interface LogEntry {
   /** True when Rest/Sick mode switched this penalty off. */
   paused?: boolean;
   /** Result you entered for improvement tracking (pace in min/km, weight in kg, rating...). */
+  /** Bedtime and wake time (timestamps) for sleep entries. */
+  sleep?: { bed: number; wake: number };
   perf?: number;
   /** Progress bonus applied (0.2 = +20%) and whether it set a personal record. */
   perfBonus?: number;

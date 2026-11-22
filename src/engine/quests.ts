@@ -1,6 +1,6 @@
 import { computeReward, DEFAULT_FORMULA } from './formula';
 import { levelScale } from './levels';
-import type { Preset, UnitKind } from './types';
+import { UNIT_SHORT, type Preset, type UnitKind } from './types';
 
 /**
  * QUESTS: goals tied to your real logs. Progress is DERIVED from logs (never stored as a counter),
@@ -122,11 +122,11 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-export const unitLabel = (u: UnitKind): string => ({ none: '', count: 'x', minutes: 'min', hours: 'h', km: 'km' })[u];
+export const unitLabel = (u: UnitKind): string => UNIT_SHORT[u];
 
 /** Rounds a target to a sensible step for its unit. */
 export function roundTarget(unit: UnitKind, v: number): number {
-  if (unit === 'km' || unit === 'hours') return Math.max(0.5, Math.round(v * 2) / 2);
+  if (unit === 'km' || unit === 'hours' || unit === 'liters') return Math.max(0.5, Math.round(v * 2) / 2);
   if (unit === 'minutes') return Math.max(5, Math.round(v / 5) * 5);
   return Math.max(1, Math.round(v));
 }
@@ -190,13 +190,15 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
   const picks: QuestDraft[] = [];
   const taken = new Set(ctx.exclude);
 
-  const add = (id: string, base: number): boolean => {
+  // Health basics (like 2 L of water) are fixed targets and never grow with your rank
+  const add = (id: string, base: number, scale = true): boolean => {
     const p = byId.get(id);
     if (!p || taken.has(id)) return false;
-    const target = p.unit === 'none' ? 1 : roundTarget(p.unit, base * ctx.questMult);
+    const target = p.unit === 'none' ? 1 : roundTarget(p.unit, scale ? base * ctx.questMult : base);
     picks.push({
       slug: id,
       title: questTitle(p, target),
+      desc: id === 'water' ? 'Log it whenever suits you, even once at the end of the day.' : undefined,
       presetIds: [id],
       metric: p.unit === 'none' ? 'logs' : 'qty',
       target,
@@ -209,6 +211,7 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
 
   // Mandatory quests
   if (!(ctx.runsLast7 < 3 && !ctx.ranYesterday && add('run', 3))) add('walk', 30);
+  add('water', 2, false); // every day: 2 litres, entered in one go if you like
   if (ctx.flags.work) add('office', 3);
   if (ctx.flags.college) add('study', 1);
 
@@ -218,7 +221,6 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
     { id: 'gym', w: ctx.gymLast7 < 3 ? 2 : 0 },
     { id: 'pending', w: 2 },
     { id: 'chores', w: free ? 2.5 : 1.5 },
-    { id: 'water', w: 1.5 },
     { id: 'sleep-ontime', w: 1.5 },
     { id: 'journal', w: 1.5 },
     { id: 'meditation', w: 1 },
@@ -238,7 +240,7 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
   }
 
   const desired = Math.min(5, Math.max(picks.length, 3 + (free ? 1 : 0) + (anyNeglected ? 1 : 0)));
-  const bases: Record<string, number> = { gym: 45, pending: 2, chores: 1, water: 6, 'sleep-ontime': 1, journal: 1, meditation: 10, reading: 20, learn: 1, 'meal-prep': 1, assignment: 1 };
+  const bases: Record<string, number> = { gym: 45, pending: 2, chores: 1, 'sleep-ontime': 1, journal: 1, meditation: 10, reading: 20, learn: 1, 'meal-prep': 1, assignment: 1 };
   const usedCats = new Set(picks.map((p) => byId.get(p.presetIds![0])?.categoryId));
   while (picks.length < desired && pool.length) {
     const live = pool.filter((c) => c.w > 0);

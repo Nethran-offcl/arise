@@ -5,14 +5,12 @@ import { computePenalty, computeReward, maxQtyFor, presetWeights } from '../engi
 import { levelScale } from '../engine/levels';
 import { masteryInfo, performanceBonus } from '../engine/progress';
 import { rankInfoForLevel } from '../engine/ranks';
-import type { Intensity, Preset } from '../engine/types';
+import { UNIT_SHORT, type Intensity, type Preset } from '../engine/types';
 import { deleteLog, logActivity, updateLog } from '../game/actions';
 import { loadProgressInputs } from '../game/progress';
 import { useCategories, useFormula, useMode, useProgress } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 import { btnGhost, btnPrimary, Field, inputCls, Segmented } from './ui';
-
-const UNIT_LABEL = { none: '', count: 'x', minutes: 'min', hours: 'h', km: 'km' } as const;
 
 /** "datetime-local" wants local time in YYYY-MM-DDTHH:mm. */
 const toLocalInput = (ts: number) => {
@@ -37,6 +35,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
   const announceQuests = useCelebrate((s) => s.announceQuests);
 
   const [qty, setQty] = useState(String(existing?.qty ?? preset.defaultQty));
+  const [ml, setMl] = useState(false); // litres presets (water) can be typed in ml
   const [intensity, setIntensity] = useState<Intensity>(existing?.intensity ?? 'normal');
   const [when, setWhen] = useState(toLocalInput(existing?.ts ?? Date.now()));
   const [note, setNote] = useState(existing?.note ?? '');
@@ -49,7 +48,10 @@ export function LogForm({ preset, existing, onDone }: Props) {
   const prog = useLiveQuery(() => loadProgressInputs(preset.id, preset.categoryId, existing?.id, whenTs), [preset.id, preset.categoryId, existing?.id, whenTs]);
 
   const maxQ = maxQtyFor(preset.unit);
-  const q = Math.min(maxQ, Math.max(0, Number(qty) || 0));
+  const isLiters = preset.unit === 'liters';
+  const typedAmount = Number(qty) || 0;
+  const inUnits = isLiters && ml ? typedAmount / 1000 : typedAmount;
+  const q = Math.min(maxQ, Math.max(0, inUnits));
   // Not a limit, just a typo check: far bigger than anything you've logged before needs a tick.
   const bigJump = !!prog?.maxQty && q > 3 * prog.maxQty && !(existing && q <= existing.qty);
   const hasQty = preset.unit !== 'none';
@@ -108,10 +110,22 @@ export function LogForm({ preset, existing, onDone }: Props) {
     <div className="space-y-3">
       <p className="text-lg font-semibold">{preset.name}</p>
       {hasQty && (
-        <Field label={`Amount (${UNIT_LABEL[preset.unit]})`}>
-          <input className={inputCls} type="number" inputMode="decimal" min={0} step={preset.unit === 'km' || preset.unit === 'hours' ? 0.1 : 1}
+        <Field label={`Amount (${isLiters ? (ml ? 'ml' : 'L') : UNIT_SHORT[preset.unit]})`}>
+          <input className={inputCls} type="number" inputMode="decimal" min={0} step={isLiters ? (ml ? 50 : 0.25) : preset.unit === 'km' || preset.unit === 'hours' ? 0.1 : 1}
             value={qty} onChange={(e) => setQty(e.target.value)} />
-          {Number(qty) > maxQ && <span className="mt-1 block text-xs text-red-300">Max {maxQ} per log. Counted as {maxQ}.</span>}
+          {isLiters && (
+            <div className="mt-2 flex flex-wrap gap-2 text-sm">
+              <button type="button" className="rounded-full border border-line px-3 text-muted" onClick={() => { const next = ml ? typedAmount / 1000 : typedAmount * 1000; setQty(String(Math.round(next * 1000) / 1000)); setMl(!ml); }}>
+                Switch to {ml ? 'litres' : 'ml'}
+              </button>
+              {[250, 500, 1000].map((v) => (
+                <button key={v} type="button" className="rounded-full border border-accent px-3 text-accent" onClick={() => setQty(String(Math.round((ml ? typedAmount + v : typedAmount + v / 1000) * 100) / 100))}>
+                  +{v >= 1000 ? `${v / 1000} L` : `${v} ml`}
+                </button>
+              ))}
+            </div>
+          )}
+          {inUnits > maxQ && <span className="mt-1 block text-xs text-red-300">Max {maxQ} per log. Counted as {maxQ}.</span>}
         </Field>
       )}
       {hasQty && bigJump && (
@@ -120,7 +134,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
           <span>That is more than 3x your biggest {preset.name.toLowerCase()} so far ({prog?.maxQty}). Tick to confirm it is correct. Nothing is capped, this only catches typos.</span>
         </label>
       )}
-      {!preset.isPenalty && (
+      {!preset.isPenalty && preset.categoryId !== 'recovery' && (
         <Segmented label="Intensity" value={intensity} onChange={setIntensity}
           options={[{ id: 'light', label: 'Light' }, { id: 'normal', label: 'Normal' }, { id: 'hard', label: 'Hard' }]} />
       )}

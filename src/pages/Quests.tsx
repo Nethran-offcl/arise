@@ -127,7 +127,7 @@ function NewQuestForm({ presets, onDone }: { presets: { id: string; name: string
   const [target, setTarget] = useState('1');
   const [period, setPeriod] = useState<CustomQuestInput['period']>('today');
   const preset = presets.find((x) => x.id === presetId);
-  const unitWord = ({ minutes: 'minutes', hours: 'hours', km: 'km', count: 'times / amount', none: '' } as Record<string, string>)[preset?.unit ?? 'none'];
+  const unitWord = ({ minutes: 'minutes', hours: 'hours', km: 'km', liters: 'litres', count: 'times / amount', none: '' } as Record<string, string>)[preset?.unit ?? 'none'];
 
   return (
     <div className="space-y-3">

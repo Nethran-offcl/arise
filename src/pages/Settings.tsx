@@ -11,6 +11,7 @@ import { seedDemo, wipeDemo } from '../game/demo';
 import { downloadBackup, restoreBackup, shareBackup } from '../game/backup';
 import { DAY_NAMES, getSchedule, setSchedule, type DayFlags } from '../game/schedule';
 import { dailyTick } from '../game/startup';
+import { getSleepTargets, setSleepTargets } from '../game/sleep';
 import { useFormula } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 
@@ -21,6 +22,7 @@ export default function Settings() {
   const dayStart = useLiveQuery(() => getSetting<number>('dayStartHour', DEFAULT_DAY_START_HOUR), [], DEFAULT_DAY_START_HOUR);
   const lastBackup = useLiveQuery(() => getSetting<number | null>('lastBackup', null), [], null);
   const schedule = useLiveQuery(getSchedule, [], undefined);
+  const sleepTargets = useLiveQuery(getSleepTargets, [], undefined);
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [usedMb, setUsedMb] = useState<string>('');
   useEffect(() => {
@@ -76,6 +78,16 @@ export default function Settings() {
           <input className={inputCls} type="number" inputMode="numeric" min={0} max={100} step={5} value={recovery}
             onChange={(e) => void setSetting('dailyRecovery', Math.min(100, Math.max(0, Number(e.target.value) || 0)))} />
         </Field>
+      </SystemWindow>
+
+      <SystemWindow title="Sleep schedule">
+        <p className="mb-2 text-sm text-muted">Your ideal bedtime and wake time. Going to bed within 30 minutes of your bedtime gives the "Slept on time" bonus automatically when you log sleep.</p>
+        {sleepTargets && (
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Bedtime"><input className={inputCls} type="time" value={sleepTargets.bed} onChange={(e) => e.target.value && void setSleepTargets({ ...sleepTargets, bed: e.target.value })} /></Field>
+            <Field label="Wake time"><input className={inputCls} type="time" value={sleepTargets.wake} onChange={(e) => e.target.value && void setSleepTargets({ ...sleepTargets, wake: e.target.value })} /></Field>
+          </div>
+        )}
       </SystemWindow>
 
       <SystemWindow title="Day starts at">

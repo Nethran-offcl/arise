@@ -26,6 +26,7 @@ interface P {
   gu?: number; // gold per unit
   hp?: number;
   hpu?: number; // HP per unit
+  cap?: number; // reward cap (max amount that pays)
   perf?: PerfSpec;
   w?: Weights;
 }
@@ -49,6 +50,7 @@ const task = (p: P): Preset => ({
   goldPerUnit: p.gu ?? 0,
   hpDelta: p.hp ?? 0,
   hpPerUnit: p.hpu ?? 0,
+  rewardCap: p.cap,
   perf: p.perf,
   weights: p.w,
   isPenalty: false,
@@ -102,10 +104,10 @@ export const DEFAULT_PRESETS: Preset[] = [
   task({ id: 'pending', c: 'tasks', n: 'Clear a pending task', u: 'count', q: 1, x: 15, gu: 5 }),
   task({ id: 'chores', c: 'tasks', n: 'House chores', u: 'count', q: 1, x: 15, gu: 5 }),
   // Recovery (VIT)
-  task({ id: 'sleep-hours', c: 'recovery', n: 'Slept', u: 'hours', q: 8, x: 6, gu: 1, hpu: 2.5 }),
+  task({ id: 'sleep-hours', c: 'recovery', n: 'Sleep', u: 'hours', q: 8, x: 6, gu: 1, hpu: 2.5, cap: 9 }),
   task({ id: 'sleep-ontime', c: 'recovery', n: 'Slept on time', b: 25, g: 5, hp: 10 }),
   task({ id: 'wake-ontime', c: 'recovery', n: 'Woke on time', b: 20, g: 4 }),
-  task({ id: 'water', c: 'recovery', n: 'Drink water', u: 'count', q: 1, x: 3, gu: 1, hp: 1 }),
+  task({ id: 'water', c: 'recovery', n: 'Drink water', u: 'liters', q: 2, x: 12, gu: 3, hpu: 1, cap: 4 }),
   task({ id: 'healthy-meal', c: 'recovery', n: 'Healthy meal', u: 'count', q: 1, x: 12, gu: 3, hp: 2 }),
   task({ id: 'meal-prep', c: 'recovery', n: 'Meal prep', b: 25, g: 8, w: { VIT: 0.6, DIS: 0.4 } }),
   // Mind (SEN)
