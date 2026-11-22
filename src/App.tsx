@@ -1,29 +1,32 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { HashRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { BottomNav } from './components/BottomNav';
 import { Celebration } from './components/Celebration';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Ritual } from './components/Ritual';
 import { requestPersistence } from './db/db';
 import { dailyTick } from './game/startup';
 import { loadSfxPrefs } from './lib/sfx';
-import Focus from './pages/Focus';
-import Heatmap from './pages/Heatmap';
 import Home from './pages/Home';
-import Journal from './pages/Journal';
 import Log from './pages/Log';
-import Presets from './pages/Presets';
-import Profile from './pages/Profile';
-import Quests from './pages/Quests';
-import Review from './pages/Review';
-import Runs from './pages/Runs';
-import Settings from './pages/Settings';
-import Shadows from './pages/Shadows';
-import SleepPage from './pages/Sleep';
-import Stats from './pages/Stats';
-import Trophies from './pages/Trophies';
 import { useCelebrate } from './store/celebrate';
 import { useUI } from './store/ui';
+
+// Screens other than Home and Log load on demand (smaller first load). They are cached for offline use after the first visit.
+const Focus = lazy(() => import('./pages/Focus'));
+const Heatmap = lazy(() => import('./pages/Heatmap'));
+const Journal = lazy(() => import('./pages/Journal'));
+const Presets = lazy(() => import('./pages/Presets'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Quests = lazy(() => import('./pages/Quests'));
+const Review = lazy(() => import('./pages/Review'));
+const Runs = lazy(() => import('./pages/Runs'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Shadows = lazy(() => import('./pages/Shadows'));
+const SleepPage = lazy(() => import('./pages/Sleep'));
+const Stats = lazy(() => import('./pages/Stats'));
+const Trophies = lazy(() => import('./pages/Trophies'));
 
 /** Routes with a short fade/slide when you change screens (skipped if you prefer reduced motion). */
 function AnimatedRoutes() {
@@ -31,6 +34,7 @@ function AnimatedRoutes() {
   const reduce = useReducedMotion();
   return (
     <motion.div key={location.pathname} initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}>
+      <Suspense fallback={<p className="text-muted">Loading…</p>}>
       <Routes location={location}>
         <Route path="/" element={<Home />} />
         <Route path="/log" element={<Log />} />
@@ -48,6 +52,7 @@ function AnimatedRoutes() {
         <Route path="/journal" element={<Journal />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
+      </Suspense>
     </motion.div>
   );
 }
@@ -85,7 +90,9 @@ export default function App() {
         className="mx-auto max-w-md px-4"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 6rem)' }}
       >
-        <AnimatedRoutes />
+        <ErrorBoundary>
+          <AnimatedRoutes />
+        </ErrorBoundary>
       </main>
       <BottomNav />
       {toast && (

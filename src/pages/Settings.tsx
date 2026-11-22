@@ -183,6 +183,16 @@ export default function Settings() {
         </div>
       </SystemWindow>
 
+      <SystemWindow title="About">
+        <p className="text-sm">ARISE <b>v{__APP_VERSION__}</b> · built {__BUILD_DATE__}</p>
+        <p className="mt-1 text-xs text-muted">The app updates itself when you are online: close it fully and reopen it to get a new version. Everything works offline.</p>
+        <button className={`${btnGhost} mt-2 w-full`} onClick={async () => {
+          const reg = await navigator.serviceWorker?.getRegistration();
+          if (reg) { await reg.update(); say('[SYSTEM] Checked for updates. Close and reopen the app if one was found.'); }
+          else say('[SYSTEM] Updates are only checked in the installed app.');
+        }}>Check for updates</button>
+      </SystemWindow>
+
       <SystemWindow title="Danger zone">
         <button className={`${btnGhost} w-full text-red-300`} onClick={async () => {
           if (confirm('Erase ALL data (profile, logs, presets, settings)? This cannot be undone.')) {
