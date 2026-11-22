@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { db, setSetting } from '../db/db';
 import { DEFAULT_PRESETS } from '../engine/defaults';
 import { planDaily, type DailyCtx } from '../engine/quests';
-import { logActivity, resetAllData } from './actions';
+import { getFormula, logActivity, resetAllData } from './actions';
 import { loadProgressInputs } from './progress';
 import { dailyTick } from './startup';
 
@@ -17,14 +17,14 @@ beforeEach(async () => {
 describe('Intelligence and Sense keep growing', () => {
   it('Study also feeds Sense (70% Intelligence, 30% Sense)', async () => {
     const r = await logActivity({ ...base, presetId: 'study', qty: 1, ts: Date.now() }); // 40 effort
-    expect(r.statGains.INT).toBe(0.6); // 40 x 0.02 x 0.7 = 0.56
-    expect(r.statGains.SEN).toBe(0.2); // 40 x 0.02 x 0.3 = 0.24
+    expect(r.statGains.INT).toBe(1.1); // 40 x 0.04 x 0.7 = 1.12
+    expect(r.statGains.SEN).toBe(0.5); // 40 x 0.04 x 0.3 = 0.48
   });
 
   it('office work feeds Intelligence as well as Discipline', async () => {
     const r = await logActivity({ ...base, presetId: 'office', qty: 2, ts: Date.now() }); // 40 effort
-    expect(r.statGains.INT).toBe(0.4); // 0.5 share
-    expect(r.statGains.DIS).toBe(0.4);
+    expect(r.statGains.INT).toBe(0.8); // 40 x 0.04 x 0.5
+    expect(r.statGains.DIS).toBe(0.8);
     const learn = await logActivity({ ...base, presetId: 'work-learning', qty: 1, ts: Date.now() });
     expect(learn.statGains.INT).toBeGreaterThan(0);
   });
@@ -48,6 +48,48 @@ describe('Intelligence and Sense keep growing', () => {
     const r = await logActivity({ ...base, presetId: 'skill-practice', qty: 30, ts: Date.now() });
     expect(r.statGains.INT).toBeGreaterThan(0);
     expect(r.statGains.SEN).toBeGreaterThan(0);
+  });
+});
+
+describe('Core raises Intelligence and Sense evenly', () => {
+  it('every Core task gives equal Intelligence and Sense', async () => {
+    for (const [id, qty] of [['meditation', 30], ['journal', 1], ['reading', 30], ['learn', 1], ['course', 30], ['skill-practice', 30], ['create', 45], ['planning', 1], ['review', 1]] as const) {
+      const r = await logActivity({ ...base, presetId: id, qty, ts: Date.now() });
+      expect(r.statGains.INT, id).toBeGreaterThan(0);
+      expect(r.statGains.SEN, id).toBe(r.statGains.INT);
+    }
+  });
+  it('a custom task you add to Core does too', async () => {
+    await db.presets.put({ ...(await db.presets.get('journal'))!, id: 'custom-podcast', name: 'Educational podcast', builtin: false });
+    const r = await logActivity({ ...base, presetId: 'custom-podcast', qty: 1, ts: Date.now() });
+    expect(r.statGains.SEN).toBe(r.statGains.INT);
+    expect(r.statGains.SEN).toBeGreaterThan(0);
+  });
+  it('stat gains are twice as big as before (rate 0.04)', async () => {
+    const r = await logActivity({ ...base, presetId: 'meditation', qty: 30, ts: Date.now() }); // 36 effort -> 1.44 split in two
+    expect((r.statGains.INT ?? 0) + (r.statGains.SEN ?? 0)).toBeCloseTo(1.44, 0);
+  });
+  it('upgrades an older install, and leaves a split you edited alone', async () => {
+    await db.categories.update('core', { weights: { SEN: 0.6, INT: 0.4 } });
+    await db.presets.update('reading', { weights: { INT: 0.7, SEN: 0.3 } });
+    await db.presets.update('course', { weights: { INT: 0.7, SEN: 0.3 } });
+    await setSetting('seedVersion', 10);
+    await dailyTick();
+    expect((await db.categories.get('core'))!.weights).toEqual({ SEN: 0.5, INT: 0.5 });
+    expect((await db.presets.get('reading'))!.weights).toBeUndefined();
+    expect((await db.presets.get('course'))!.weights).toBeUndefined();
+    await db.categories.update('core', { weights: { SEN: 1 } }); // you chose Sense only
+    await setSetting('seedVersion', 10);
+    await dailyTick();
+    expect((await db.categories.get('core'))!.weights).toEqual({ SEN: 1 });
+  });
+  it('an old saved stat rate of 0.02 follows the new default, but other edits are kept', async () => {
+    await setSetting('formula', { statRate: 0.02, xpMult: 1.5 });
+    const f = await getFormula();
+    expect(f.statRate).toBe(0.04);
+    expect(f.xpMult).toBe(1.5);
+    await setSetting('formula', { statRate: 0.03 });
+    expect((await getFormula()).statRate).toBe(0.03); // a rate you chose yourself stays
   });
 });
 

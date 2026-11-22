@@ -56,7 +56,7 @@ describe('rewards', () => {
     const r = computeReward(preset('run'), 3, 'normal', ctx);
     expect(r.xp).toBe(100); // 10 + 30*3
     expect(r.gold).toBe(27); // 3 + 8*3
-    expect(r.statGains.AGI).toBe(2); // 100 * 0.02
+    expect(r.statGains.AGI).toBe(4); // 100 effort x 0.04
   });
   it('applies intensity, difficulty and rank', () => {
     const base = computeReward(preset('run'), 3, 'normal', ctx).xp;

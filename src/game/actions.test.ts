@@ -30,7 +30,7 @@ describe('logging', () => {
     const p = (await db.profile.get(1))!;
     expect(p.totalXp).toBe(100);
     expect(p.gold).toBe(27);
-    expect(p.stats.AGI).toBe(2);
+    expect(p.stats.AGI).toBe(4);
     expect(p.hp).toBe(94); // 3 km x -2
   });
 

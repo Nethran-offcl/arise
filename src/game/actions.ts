@@ -22,6 +22,7 @@ export const getFormula = async (): Promise<Formula> => {
   // Older versions saved low per-log caps (500/1000 XP, 300 gold) that could block big efforts. Ignore those.
   if (stored.maxXpPerLog === 500 || stored.maxXpPerLog === 1000) delete stored.maxXpPerLog;
   if (stored.maxGoldPerLog === 300) delete stored.maxGoldPerLog;
+  if (stored.statRate === 0.02) delete stored.statRate; // old default: stat gains are now twice as big
   return sanitizeFormula({ ...DEFAULT_FORMULA, ...stored });
 };
 export const getMode = () => getSetting<PlayMode>('mode', 'normal');
@@ -77,8 +78,9 @@ export async function setHp(hp: number): Promise<void> {
  *  v8: adds the Focus session task and the Okay meal task.
  *  v9: repairs open water quests created before water moved to litres (they would ask for 6 L).
  *  v10: Study and Core share one mind mastery; Study feeds Sense; Work feeds Intelligence; new skills & learning tasks.
+ *  v11: Core splits Intelligence and Sense evenly (50/50), including its reading, learning and skills tasks.
  */
-export const SEED_VERSION = 10;
+export const SEED_VERSION = 11;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -93,6 +95,7 @@ async function migrateSeed(): Promise<void> {
   if (v < 7) await waterAndSleep();
   if (v < 9) await fixOldWaterQuests();
   if (v < 10) await mindStats();
+  if (v < 11) await coreEven();
   if (v < 8) {
     for (const id of ['focus', 'meal-okay']) if (!(await db.presets.get(id))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === id)!);
   }
@@ -155,6 +158,19 @@ export async function mindStats(): Promise<void> {
     if (work && sameWeights(work.weights, { DIS: 0.8, INT: 0.2 })) await db.categories.update('work', { weights: { INT: 0.5, DIS: 0.5 } });
     for (const id of ['course', 'skill-practice', 'create', 'work-learning']) {
       if (!(await db.presets.get(id))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === id)!);
+    }
+  });
+}
+
+/** v11: Core is an even Intelligence/Sense split. A split you edited yourself is left alone. */
+export async function coreEven(): Promise<void> {
+  await db.transaction('rw', [db.categories, db.presets], async () => {
+    const core = await db.categories.get('core');
+    if (core && sameWeights(core.weights, { SEN: 0.6, INT: 0.4 })) await db.categories.update('core', { weights: { SEN: 0.5, INT: 0.5 } });
+    // The learning tasks used their own 70/30 and 60/40 splits: they now follow Core's even split
+    for (const id of ['reading', 'learn', 'course', 'skill-practice', 'create']) {
+      const p = await db.presets.get(id);
+      if (p?.builtin && p.categoryId === 'core') await db.presets.update(id, { weights: undefined });
     }
   });
 }

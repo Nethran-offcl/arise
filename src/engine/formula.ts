@@ -24,7 +24,7 @@ export interface Formula {
 export const DEFAULT_FORMULA: Formula = {
   xpMult: 1,
   goldMult: 1,
-  statRate: 0.02,
+  statRate: 0.04,
   intensity: { light: 0.8, normal: 1, hard: 1.3 },
   fatigue: { light: 0.6, normal: 1, hard: 1.5 },
   difficulty: 'normal',

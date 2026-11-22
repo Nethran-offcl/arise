@@ -11,7 +11,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'recovery', name: 'Recovery', icon: '🌙', weights: { VIT: 1 }, kind: 'task', order: 7 },
   // Core: a free-form bucket for anything you want credit for. It shares one mastery pool with Study, so
   // reading, learning and reflecting keep Intelligence and Sense growing even when you are not studying.
-  { id: 'core', name: 'Core', icon: '✨', weights: { SEN: 0.6, INT: 0.4 }, kind: 'task', order: 8, masteryGroup: 'mind' },
+  { id: 'core', name: 'Core', icon: '✨', weights: { SEN: 0.5, INT: 0.5 }, kind: 'task', order: 8, masteryGroup: 'mind' },
   { id: 'penalty', name: 'Course Corrections', icon: '⚠️', weights: {}, kind: 'penalty', order: 99 },
 ];
 
@@ -37,8 +37,6 @@ const LIFT: PerfSpec = { kind: 'higher', label: 'Heaviest weight lifted (kg)', u
 const PLAY: PerfSpec = { kind: 'higher', label: 'How well did you play? (1-10, honest rating)', unit: '/10' };
 
 const SPORT_SPLIT: Weights = { AGI: 0.6, STR: 0.4 };
-const KNOWLEDGE_SPLIT: Weights = { INT: 0.7, SEN: 0.3 };
-const SKILL_SPLIT: Weights = { INT: 0.6, SEN: 0.4 };
 const SKILL_RATING: PerfSpec = { kind: 'higher', label: 'How did it go? (1-10, honest rating)', unit: '/10' };
 
 const task = (p: P): Preset => ({
@@ -118,11 +116,11 @@ export const DEFAULT_PRESETS: Preset[] = [
   task({ id: 'meditation', c: 'core', n: 'Meditation', u: 'minutes', q: 10, x: 1.2, gu: 0.3, hp: 2 }),
   task({ id: 'journal', c: 'core', n: 'Journaling', b: 15, g: 4 }),
   task({ id: 'focus', c: 'study', n: 'Focus session (timer)', u: 'minutes', q: 25, x: 0.8, gu: 0.25, hpu: -0.05, w: { INT: 0.6, DIS: 0.4 } }),
-  task({ id: 'reading', c: 'core', n: 'Read (book / article)', u: 'minutes', q: 30, x: 0.6, gu: 0.2, w: KNOWLEDGE_SPLIT }),
-  task({ id: 'learn', c: 'core', n: 'Learned something new', u: 'count', q: 1, x: 25, gu: 6, w: KNOWLEDGE_SPLIT }),
-  task({ id: 'course', c: 'core', n: 'Online course / lesson', u: 'minutes', q: 30, x: 0.8, gu: 0.25, w: KNOWLEDGE_SPLIT }),
-  task({ id: 'skill-practice', c: 'core', n: 'Practise a skill', u: 'minutes', q: 30, x: 0.8, gu: 0.25, w: SKILL_SPLIT, perf: SKILL_RATING }),
-  task({ id: 'create', c: 'core', n: 'Write / build / create', u: 'minutes', q: 45, x: 0.9, gu: 0.3, w: SKILL_SPLIT }),
+  task({ id: 'reading', c: 'core', n: 'Read (book / article)', u: 'minutes', q: 30, x: 0.6, gu: 0.2 }),
+  task({ id: 'learn', c: 'core', n: 'Learned something new', u: 'count', q: 1, x: 25, gu: 6 }),
+  task({ id: 'course', c: 'core', n: 'Online course / lesson', u: 'minutes', q: 30, x: 0.8, gu: 0.25 }),
+  task({ id: 'skill-practice', c: 'core', n: 'Practise a skill', u: 'minutes', q: 30, x: 0.8, gu: 0.25, perf: SKILL_RATING }),
+  task({ id: 'create', c: 'core', n: 'Write / build / create', u: 'minutes', q: 45, x: 0.9, gu: 0.3 }),
   task({ id: 'work-learning', c: 'work', n: 'Learned something at work', u: 'count', q: 1, x: 20, gu: 6 }),
   task({ id: 'planning', c: 'core', n: 'Plan the day/week', b: 12, g: 3 }),
   task({ id: 'review', c: 'core', n: 'Reflect & review', b: 20, g: 5 }),
