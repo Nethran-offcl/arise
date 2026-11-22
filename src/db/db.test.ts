@@ -6,7 +6,7 @@ describe('data layer', () => {
   it('creates a default profile once', async () => {
     const a = await ensureProfile();
     const b = await ensureProfile();
-    expect(a.level).toBe(1);
+    expect(a.totalXp).toBe(0);
     expect(b.createdAt).toBe(a.createdAt);
     expect(await db.profile.count()).toBe(1);
   });

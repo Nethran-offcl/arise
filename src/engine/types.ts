@@ -1,0 +1,60 @@
+/** Shared game types. The engine folder is pure (no DB, no React) so it is easy to test. */
+
+export type StatKey = 'STR' | 'AGI' | 'VIT' | 'INT' | 'DIS' | 'SEN';
+export const STAT_KEYS: StatKey[] = ['STR', 'AGI', 'VIT', 'INT', 'DIS', 'SEN'];
+export const STAT_LABEL: Record<StatKey, string> = {
+  STR: 'Strength',
+  AGI: 'Agility',
+  VIT: 'Vitality',
+  INT: 'Intelligence',
+  DIS: 'Discipline',
+  SEN: 'Sense',
+};
+export type Stats = Record<StatKey, number>;
+export const emptyStats = (): Stats => ({ STR: 0, AGI: 0, VIT: 0, INT: 0, DIS: 0, SEN: 0 });
+
+export type Weights = Partial<Record<StatKey, number>>;
+export type UnitKind = 'none' | 'count' | 'minutes' | 'hours' | 'km';
+export type Intensity = 'light' | 'normal' | 'hard';
+export type Rank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+export type PlayMode = 'normal' | 'rest' | 'sick';
+
+export interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  /** How rewards from this category are split between stats (weights should sum to ~1). */
+  weights: Weights;
+  kind: 'task' | 'penalty';
+  order: number;
+}
+
+export interface PenaltyQuestHint {
+  text: string;
+  presetId?: string;
+  qty?: number;
+}
+
+/**
+ * A reusable activity. For normal presets:  reward = baseXp + xpPerUnit * quantity.
+ * For penalty presets: baseXp is the (small) XP deduction and hpDelta is negative.
+ */
+export interface Preset {
+  id: string;
+  categoryId: string;
+  name: string;
+  unit: UnitKind;
+  defaultQty: number;
+  baseXp: number;
+  xpPerUnit: number;
+  baseGold: number;
+  goldPerUnit: number;
+  /** HP change applied once per log (positive = recovery, negative = fatigue/penalty). */
+  hpDelta: number;
+  /** Overrides the category's stat split when set. */
+  weights?: Weights;
+  isPenalty: boolean;
+  breaksStreak: boolean;
+  penaltyQuest?: PenaltyQuestHint;
+  builtin: boolean;
+}

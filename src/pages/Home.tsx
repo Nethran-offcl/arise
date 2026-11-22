@@ -1,38 +1,88 @@
-import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { Bar, btnPrimary, Segmented } from '../components/ui';
 import { SystemWindow } from '../components/SystemWindow';
-import { ensureProfile, getSetting, setSetting, type Profile } from '../db/db';
+import { rankInfoForLevel } from '../engine/ranks';
+import { setMode } from '../game/actions';
+import { useMode, useProgress, useRecentLogs, useStreak } from '../hooks';
+import { useCelebrate } from '../store/celebrate';
+
+const MODE_TEXT = {
+  normal: '',
+  rest: 'Rest Day active: penalties and streak loss are paused. HP recovers.',
+  sick: 'Sick/Injury Mode active: penalties and streak loss are paused. Take care of yourself.',
+} as const;
 
 export default function Home() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [opens, setOpens] = useState(0);
+  const p = useProgress();
+  const mode = useMode();
+  const streak = useStreak();
+  const recent = useRecentLogs(3);
+  const say = useCelebrate((s) => s.say);
 
-  // Proves the data layer works: profile + a counter survive reloads and offline.
-  useEffect(() => {
-    (async () => {
-      setProfile(await ensureProfile());
-      const n = (await getSetting<number>('openCount', 0)) + 1;
-      await setSetting('openCount', n);
-      setOpens(n);
-    })();
-  }, []);
+  if (!p) return <p className="text-muted">Loading the System…</p>;
+  const { profile, level, into, needed, rank } = p;
 
   return (
     <div className="space-y-4">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-        <SystemWindow title="System">
-          <p className="text-2xl font-bold glow-text">Hello, System.</p>
-          <p className="text-muted mt-1">[SYSTEM] Welcome, {profile?.name ?? '…'}. You have been chosen as a Player.</p>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <SystemWindow title="Status">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-accent text-3xl font-black glow-text" aria-label={`Rank ${rank.rank}`}>
+              {rank.rank}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xl font-bold glow-text">{profile.name}</p>
+              <p className="truncate text-sm text-muted">{profile.title} · {rank.title}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <div>
+              <div className="mb-1 flex justify-between text-sm"><span>Level {level}</span><span className="text-muted">{into} / {needed} XP</span></div>
+              <Bar value={into} max={needed} label="Experience" />
+            </div>
+            <div>
+              <div className="mb-1 flex justify-between text-sm"><span>HP / Energy</span><span className="text-muted">{profile.hp} / {profile.maxHp}</span></div>
+              <Bar value={profile.hp} max={profile.maxHp} color="#34d399" label="HP" />
+            </div>
+          </div>
+
+          <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
+            <div><dt className="text-xs text-muted">GOLD</dt><dd className="text-lg font-bold">🪙 {profile.gold}</dd></div>
+            <div><dt className="text-xs text-muted">STREAK</dt><dd className="text-lg font-bold">🔥 {streak}</dd></div>
+            <div><dt className="text-xs text-muted">NEXT RANK</dt><dd className="text-lg font-bold">{nextRankLabel(level)}</dd></div>
+          </dl>
         </SystemWindow>
       </motion.div>
-      <SystemWindow title="Status">
-        <dl className="grid grid-cols-3 gap-2 text-center">
-          <div><dt className="text-xs text-muted">LEVEL</dt><dd className="text-xl font-bold">{profile?.level ?? '–'}</dd></div>
-          <div><dt className="text-xs text-muted">RANK</dt><dd className="text-xl font-bold">E</dd></div>
-          <div><dt className="text-xs text-muted">GOLD</dt><dd className="text-xl font-bold">{profile?.gold ?? '–'}</dd></div>
-        </dl>
-        <p className="mt-3 text-xs text-muted">Data layer check: app opened {opens} time(s), stored on this device.</p>
+
+      {mode !== 'normal' && <p className="sys-window p-3 text-sm text-accent" role="status">[SYSTEM] {MODE_TEXT[mode]}</p>}
+
+      <SystemWindow title="Today">
+        <Link to="/log" className={`${btnPrimary} flex items-center justify-center`}>＋ Log a task</Link>
+        <p className="mt-3 text-sm text-muted">Daily quests unlock in Phase 3. For now, every task you log earns XP.</p>
       </SystemWindow>
+
+      <SystemWindow title="Recovery mode">
+        <Segmented label="Play mode" value={mode} options={[{ id: 'normal', label: 'Normal' }, { id: 'rest', label: 'Rest day' }, { id: 'sick', label: 'Sick / injured' }]}
+          onChange={async (m) => { await setMode(m); say(m === 'normal' ? '[SYSTEM] Back to normal mode.' : '[SYSTEM] Penalties paused. Rest well.'); }} />
+      </SystemWindow>
+
+      {recent.length > 0 && (
+        <SystemWindow title="Latest">
+          <ul className="space-y-1 text-sm">
+            {recent.map((l) => (
+              <li key={l.id} className="flex justify-between"><span>{l.label}</span><span className={l.isPenalty ? 'text-red-300' : 'text-accent'}>{l.xp > 0 ? '+' : ''}{l.xp} XP</span></li>
+            ))}
+          </ul>
+        </SystemWindow>
+      )}
     </div>
   );
+}
+
+function nextRankLabel(level: number): string {
+  const cur = rankInfoForLevel(level);
+  const nextLevel = [10, 20, 35, 50, 70].find((l) => l > level);
+  return cur.rank === 'S' || !nextLevel ? 'MAX' : `Lv ${nextLevel}`;
 }
