@@ -46,15 +46,28 @@ export default function Profile() {
       </SystemWindow>
 
       <SystemWindow title="Theme">
-        <div className="grid grid-cols-1 gap-2">
-          {themes.map((t) => (
+        {(() => {
+          const MAIN: Theme[] = ['system', 'monarch', 'minimal'];
+          const btn = (t: (typeof themes)[number]) => (
             <button key={t.id} onClick={() => setTheme(t.id)} aria-pressed={theme === t.id}
               className={`flex items-center gap-3 rounded-lg border px-4 text-left ${theme === t.id ? 'border-accent text-accent' : 'border-line text-ink'}`}>
               <span aria-hidden className="h-6 w-6 shrink-0 rounded-full" style={{ background: `linear-gradient(135deg, ${t.colors[0]}, ${t.colors[1]})`, boxShadow: `0 0 10px ${t.colors[0]}` }} />
               {t.label}
             </button>
-          ))}
-        </div>
+          );
+          return (
+            <div className="grid grid-cols-1 gap-2">
+              {themes.filter((t) => MAIN.includes(t.id)).map(btn)}
+              {/* The flashy extras live in a dropdown so the screen stays tidy; it opens by itself if one is active. */}
+              <details open={!MAIN.includes(theme)} className="group">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg border border-dashed border-accent px-4 text-accent">
+                  More themes <span aria-hidden className="transition-transform group-open:rotate-180">▾</span>
+                </summary>
+                <div className="mt-2 grid grid-cols-1 gap-2">{themes.filter((t) => !MAIN.includes(t.id)).map(btn)}</div>
+              </details>
+            </div>
+          );
+        })()}
       </SystemWindow>
 
       <SystemWindow title="Tools">
