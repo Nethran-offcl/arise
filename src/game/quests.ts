@@ -9,7 +9,9 @@ import { computeStreak, dayKey, dayStartTs, shiftDay, weekStartKey, weekdayOf } 
 import type { PlayMode } from '../engine/types';
 import { UNIT_SHORT } from '../engine/types';
 import { getTodayFlags, getSchedule } from './schedule';
+import { buildAdvice } from '../engine/system';
 import { doubleXpBoost } from './shop';
+import { loadSnapshot } from './system';
 
 const DAY = 86_400_000;
 
@@ -154,6 +156,7 @@ export async function ensureQuests(now = Date.now()): Promise<void> {
     const wStart = dayStartTs(wk);
     const wEnd = dayStartTs(shiftDay(wk, 7));
     const recent = recentContext(logs, now);
+    const advice = buildAdvice(await loadSnapshot(now)); // recovery days, exam mode, safe running
 
     // Milestones (created once, they stay until completed)
     for (const m of MILESTONES) {
@@ -166,7 +169,7 @@ export async function ensureQuests(now = Date.now()): Promise<void> {
     // This week: three quests and the boss raid
     if (!(await db.quests.where('key').equals(`boss:${wk}`).first())) {
       const hasCollege = Object.values(schedule).some((d) => d.college);
-      for (const d of planWeekly({ questMult: rank.questMult, lastWeekRuns: recent.lastWeekRuns, hasCollege }, presets)) {
+      for (const d of planWeekly({ questMult: rank.questMult, lastWeekRuns: recent.lastWeekRuns, hasCollege, adapt: advice.adapt }, presets)) {
         await addIfNew(buildQuest(d, `weekly:${wk}:${d.slug}`, 'weekly', 'weekly', presets, [wStart, wEnd], now));
       }
       const boss = planBoss(recent.avgWeeklyEffort, hashString(wk));
@@ -183,13 +186,13 @@ export async function ensureQuests(now = Date.now()): Promise<void> {
         const regen = await getSetting<number>('regenCount', 0);
         const ctx: DailyCtx = {
           flags, weekday: weekdayOf(today), questMult: rank.questMult, seed: hashString(`${today}|${flags.work}|${flags.college}|${regen}`),
-          runsLast7: recent.runsLast7, ranYesterday: recent.ranYesterday, gymLast7: recent.gymLast7, effortByCategory: recent.effortByCategory, exclude: [],
+          runsLast7: recent.runsLast7, ranYesterday: recent.ranYesterday, gymLast7: recent.gymLast7, effortByCategory: recent.effortByCategory, exclude: [], adapt: advice.adapt,
         };
         for (const d of planDaily(ctx, presets)) await addIfNew(buildQuest(d, `daily:${today}:${d.slug}`, 'daily', 'daily', presets, [dStart, dEnd], now));
       }
 
       // Surprise emergency quest (about 15% of days)
-      if (hashString(`${today}|emg`) % 100 < 15 && !(await db.quests.where('key').equals(`emergency:${today}`).first())) {
+      if (!advice.adapt.gentle && hashString(`${today}|emg`) % 100 < 15 && !(await db.quests.where('key').equals(`emergency:${today}`).first())) {
         const rng = mulberry32(hashString(`${today}|emg2`));
         const options: [string, number][] = [['walk', 15], ['bodyweight', 20], ['chores', 1], ['journal', 1], ['pending', 1]];
         const ids = new Set(presets.map((p) => p.id));
@@ -248,10 +251,11 @@ async function ensureQuestsExcludingAccepted(now: number): Promise<void> {
     const recent = recentContext(logs, now);
     const regen = await getSetting<number>('regenCount', 0);
     const dStart = dayStartTs(today);
+    const advice = buildAdvice(await loadSnapshot(now));
     const ctx: DailyCtx = {
       flags, weekday: weekdayOf(today), questMult: rank.questMult, seed: hashString(`${today}|${flags.work}|${flags.college}|${regen}`),
       runsLast7: recent.runsLast7, ranYesterday: recent.ranYesterday, gymLast7: recent.gymLast7, effortByCategory: recent.effortByCategory,
-      exclude: existing.flatMap((q) => q.presetIds ?? []),
+      exclude: existing.flatMap((q) => q.presetIds ?? []), adapt: advice.adapt,
     };
     let total = existing.length;
     for (const d of planDaily(ctx, presets)) {

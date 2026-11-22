@@ -53,6 +53,7 @@ export default function Profile() {
 
       <SystemWindow title="More">
         <div className="grid gap-2">
+          <Link to="/review" className={`${btnGhost} flex items-center`}>Weekly review</Link>
           <Link to="/presets" className={`${btnGhost} flex items-center`}>Manage tasks &amp; presets</Link>
           <Link to="/settings" className={`${btnGhost} flex items-center`}>Settings, formulas &amp; demo data</Link>
         </div>

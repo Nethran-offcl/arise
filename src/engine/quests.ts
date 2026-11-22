@@ -162,6 +162,20 @@ export function rewardForDraft(d: QuestDraft, presets: Preset[], kind: keyof typ
   return { effort: Math.max(1, Math.round(b.effort * m)), gold: Math.round(b.gold * m) };
 }
 
+/**
+ * How the System wants today adjusted (worked out in engine/system.ts):
+ * gentle = recovery day, noHard = no running/lifting, runTarget = safe run distance (null = no run),
+ * physicalScale = multiplier on walk/gym targets, study = exam/deadline study quest.
+ */
+export interface Adapt {
+  gentle: boolean;
+  noHard: boolean;
+  runTarget: number | null;
+  physicalScale: number;
+  study: { base: number } | null;
+  examWeeklyStudy: number | null;
+}
+
 export interface DailyCtx {
   flags: { work: boolean; college: boolean };
   weekday: number;
@@ -175,6 +189,8 @@ export interface DailyCtx {
   effortByCategory: Record<string, number>;
   /** Tasks that already have a quest today (never duplicate). */
   exclude: string[];
+  /** Adjustments from the System engine (recovery day, exam mode, safe running). Omit for the plain plan. */
+  adapt?: Adapt;
 }
 
 /**
@@ -209,16 +225,25 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
     return true;
   };
 
+  const A = ctx.adapt;
+  const phys = A?.physicalScale ?? 1;
+
   // Mandatory quests
-  if (!(ctx.runsLast7 < 3 && !ctx.ranYesterday && add('run', 3))) add('walk', 30);
+  if (A?.noHard) add('walk', 30 * Math.min(phys, 0.65)); // recovery / final-stretch days: gentle movement only
+  else if (!(ctx.runsLast7 < 3 && !ctx.ranYesterday && (A ? A.runTarget !== null : true) && add('run', A?.runTarget ?? 3, !A))) add('walk', 30 * phys);
   add('water', 2, false); // every day: 2 litres, entered in one go if you like
-  if (ctx.flags.work) add('office', 3);
-  if (ctx.flags.college) add('study', 1);
+  if (A?.study) add('study', A.study.base, false); // exam / deadline focus, even on a non-college day
+  if (ctx.flags.work && !A?.gentle) add('office', 3);
+  if (ctx.flags.college && !A?.gentle) add('study', 1);
+  if (A?.gentle) {
+    const w = picks.find((p) => p.slug === 'walk');
+    if (w) w.desc = 'Easy day: gentle movement only. Resting is part of leveling up.';
+  }
 
   // Optional pool: [task id, weight]
   const free = !ctx.flags.work && !ctx.flags.college;
   const pool: { id: string; w: number }[] = [
-    { id: 'gym', w: ctx.gymLast7 < 3 ? 2 : 0 },
+    { id: 'gym', w: ctx.gymLast7 < 3 && !A?.noHard ? 2 : 0 },
     { id: 'pending', w: 2 },
     { id: 'chores', w: free ? 2.5 : 1.5 },
     { id: 'sleep-ontime', w: 1.5 },
@@ -227,8 +252,11 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
     { id: 'reading', w: 1.2 },
     { id: 'learn', w: 0.8 },
     { id: 'meal-prep', w: free ? 1.2 : 0.4 },
-    { id: 'assignment', w: ctx.flags.college ? 2 : 0 },
-  ].filter((c) => byId.has(c.id) && !taken.has(c.id));
+    { id: 'assignment', w: ctx.flags.college || A?.study ? 2 : 0 },
+  ]
+    // Recovery days keep only restful extras
+    .filter((c) => !A?.gentle || ['sleep-ontime', 'journal', 'meditation', 'reading'].includes(c.id))
+    .filter((c) => byId.has(c.id) && !taken.has(c.id));
 
   let anyNeglected = false;
   for (const c of pool) {
@@ -240,7 +268,7 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
   }
 
   const desired = Math.min(5, Math.max(picks.length, 3 + (free ? 1 : 0) + (anyNeglected ? 1 : 0)));
-  const bases: Record<string, number> = { gym: 45, pending: 2, chores: 1, 'sleep-ontime': 1, journal: 1, meditation: 10, reading: 20, learn: 1, 'meal-prep': 1, assignment: 1 };
+  const bases: Record<string, number> = { gym: 45 * phys, pending: 2, chores: 1, 'sleep-ontime': 1, journal: 1, meditation: 10, reading: 20, learn: 1, 'meal-prep': 1, assignment: 1 };
   const usedCats = new Set(picks.map((p) => byId.get(p.presetIds![0])?.categoryId));
   while (picks.length < desired && pool.length) {
     const live = pool.filter((c) => c.w > 0);
@@ -267,6 +295,8 @@ export interface WeeklyCtx {
   questMult: number;
   lastWeekRuns: number;
   hasCollege: boolean;
+  /** Adjustments from the System engine (exam mode raises the weekly study target). */
+  adapt?: Adapt;
 }
 
 /** Three weekly quests (a boss raid is planned separately). */
@@ -278,8 +308,8 @@ export function planWeekly(ctx: WeeklyCtx, presets: Preset[]): QuestDraft[] {
     const t = ctx.lastWeekRuns >= 2 ? 3 : 2;
     out.push({ slug: 'runs', title: `Run ${t} times this week (2 km or more)`, presetIds: ['run'], metric: 'logs', minQty: 2, target: t, unit: 'runs', reward: { presetId: 'run', qty: 3, repeats: t } });
   }
-  if (ctx.hasCollege && ids.has('study')) {
-    const t = roundTarget('hours', 4 * ctx.questMult);
+  if ((ctx.hasCollege || ctx.adapt?.examWeeklyStudy) && ids.has('study')) {
+    const t = ctx.adapt?.examWeeklyStudy ?? roundTarget('hours', 4 * ctx.questMult);
     out.push({ slug: 'study', title: `Study ${t} hours this week`, presetIds: ['study'], metric: 'qty', target: t, unit: 'h', reward: { presetId: 'study', qty: t, repeats: 1 } });
   } else if (ids.has('gym')) {
     out.push({ slug: 'lift', title: 'Do 2 gym sessions this week', presetIds: ['gym'], metric: 'logs', target: 2, unit: 'sessions', reward: { presetId: 'gym', qty: 45, repeats: 2 } });

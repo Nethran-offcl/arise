@@ -25,7 +25,13 @@ export function SleepForm({ existing, onDone }: { existing?: LogEntry; onDone: (
   const announceQuests = useCelebrate((s) => s.announceQuests);
   const say = useCelebrate((s) => s.say);
 
-  const wake0 = existing?.sleep?.wake ?? existing?.ts ?? Date.now();
+  // New entry: if it is still before your usual wake time, "last night" means yesterday morning's wake-up
+  const defaultWake = () => {
+    const n = new Date();
+    const usual = new Date(n.getFullYear(), n.getMonth(), n.getDate(), 7, 0).getTime();
+    return n.getTime() >= usual ? n.getTime() : n.getTime() - 86_400_000;
+  };
+  const wake0 = existing?.sleep?.wake ?? existing?.ts ?? defaultWake();
   const bed0 = existing?.sleep?.bed ?? (existing ? existing.ts - existing.qty * 3_600_000 : undefined);
   const [wakeDate, setWakeDate] = useState(localDate(wake0));
   const [bedTime, setBedTime] = useState(bed0 ? localTime(bed0) : '');
@@ -37,7 +43,8 @@ export function SleepForm({ existing, onDone }: { existing?: LogEntry; onDone: (
   const bed = bedTime || targets?.bed || '23:00';
   const wake = wakeTime || targets?.wake || '07:00';
   const win = sleepWindow(wakeDate, bed, wake);
-  const valid = win.hours >= 0.5 && win.hours <= 16 && win.wakeTs <= Date.now() + 5 * 60_000;
+  const future = win.wakeTs > Date.now() + 5 * 60_000;
+  const valid = win.hours >= 0.5 && win.hours <= 16 && !future;
   const onTime = !!targets && sleepOnTime(win.bedTs, targets.bed);
   const wakeDay = dayKey(win.wakeTs);
 
@@ -90,7 +97,7 @@ export function SleepForm({ existing, onDone }: { existing?: LogEntry; onDone: (
       </div>
       <div className="rounded-lg border border-line bg-black/30 p-3 text-sm" aria-live="polite">
         <p className={valid ? 'text-accent' : 'text-red-300'}>
-          {valid ? `${Math.floor(win.hours)} h ${Math.round((win.hours % 1) * 60)} min of sleep` : 'That does not look right: check the times (0.5 to 16 hours).'}
+          {valid ? `${Math.floor(win.hours)} h ${Math.round((win.hours % 1) * 60)} min of sleep` : future ? 'That wake time is still in the future. Pick the day and time you actually woke up.' : 'That does not look right: check the times (0.5 to 16 hours).'}
         </p>
         {valid && <p className="mt-1 text-xs text-muted">{preview}</p>}
         {valid && targets && <p className="mt-1 text-xs text-muted">{onTime ? `✓ Bedtime on time (target ${targets.bed}, ${SLEEP_ON_TIME_GRACE_MIN} min grace): you also get the Slept on time bonus.` : `Bedtime target is ${targets.bed}. Change it in Settings.`}</p>}

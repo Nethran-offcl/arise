@@ -56,3 +56,4 @@ Every `git push` to `main` redeploys automatically.
 All data is stored on your phone, inside the browser engine that runs the app (IndexedDB). Nothing is sent to GitHub or any server. The app never needs an account.
 It is erased if you clear Chrome's site data, uninstall the app, or lose the phone, so use Settings > Backup & restore to save a plain JSON file (to Files, Drive or email) and restore it on any device or URL.
 
+

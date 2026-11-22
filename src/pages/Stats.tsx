@@ -1,18 +1,23 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Segmented } from '../components/ui';
+import { dayStats, generateInsights, windowStats } from '../engine/system';
 import { SystemWindow } from '../components/SystemWindow';
 import { freeStatPoints } from '../engine/levels';
 import { STAT_KEYS, STAT_LABEL } from '../engine/types';
 import { spendStatPoint } from '../game/actions';
 import { db } from '../db/db';
 import { masteryInfo } from '../engine/progress';
-import { useCategories, useProgress } from '../hooks';
+import { useCategories, useProgress, useSnapshot } from '../hooks';
 
 const StatsChart = lazy(() => import('./StatsChart'));
 
 export default function Stats() {
   const p = useProgress();
   const cats = useCategories();
+  const snap = useSnapshot();
+  const [win, setWin] = useState<'7' | '14' | '30'>('7');
   // Effort XP per category drives mastery (+2% XP per mastery level, up to +30%).
   const effort = useLiveQuery(async () => {
     const totals: Record<string, number> = {};
@@ -61,6 +66,35 @@ export default function Stats() {
         </ul>
         <p className="mt-3 text-xs text-muted">Stats rise automatically from what you log. You also gain 3 free points per level.</p>
       </SystemWindow>
+
+      {snap && (() => {
+        const n = Number(win) as 7 | 14 | 30;
+        const w = windowStats(dayStats(snap, n), snap.sleepTargetHours);
+        const list = generateInsights(snap, n);
+        return (
+          <SystemWindow title="System analysis">
+            <Segmented label="Time window" value={win} onChange={setWin} options={[{ id: '7', label: '7 days' }, { id: '14', label: '14 days' }, { id: '30', label: '30 days' }]} />
+            <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+              <div><dt className="text-xs text-muted">ACTIVE DAYS</dt><dd className="text-lg font-bold">{w.activeDays}/{n}</dd></div>
+              <div><dt className="text-xs text-muted">AVG SLEEP</dt><dd className="text-lg font-bold">{w.avgSleep !== null ? `${w.avgSleep.toFixed(1)} h` : '–'}</dd></div>
+              <div><dt className="text-xs text-muted">RUNNING</dt><dd className="text-lg font-bold">{w.runKm.toFixed(1)} km</dd></div>
+              <div><dt className="text-xs text-muted">STUDY</dt><dd className="text-lg font-bold">{w.studyHours.toFixed(1)} h</dd></div>
+              <div><dt className="text-xs text-muted">HARD DAYS</dt><dd className="text-lg font-bold">{w.hardDays}</dd></div>
+              <div><dt className="text-xs text-muted">SLIPS</dt><dd className="text-lg font-bold">{w.penalties}</dd></div>
+            </dl>
+            <ul className="mt-3 space-y-2">
+              {list.length === 0 && <li className="text-sm text-muted">Nothing to report yet. Keep logging.</li>}
+              {list.map((i) => (
+                <li key={i.id} className={`rounded-lg border p-3 text-sm ${i.tone === 'warn' ? 'border-red-400/60' : i.tone === 'good' ? 'border-accent/60' : 'border-line'}`}>
+                  <p className="font-semibold">{i.tone === 'warn' ? '⚠️' : i.tone === 'good' ? '✅' : '💡'} {i.title}</p>
+                  <p className="mt-1 text-muted">{i.text}</p>
+                </li>
+              ))}
+            </ul>
+            <Link to="/review" className="mt-3 block text-sm text-accent">Open the weekly review →</Link>
+          </SystemWindow>
+        );
+      })()}
     </div>
   );
 }

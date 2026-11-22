@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Bar, btnPrimary, Segmented } from '../components/ui';
 import { SystemWindow } from '../components/SystemWindow';
+import { SystemCard } from '../components/SystemCard';
 import { TodayQuests } from '../components/TodayQuests';
 import { rankInfoForLevel, RANKS } from '../engine/ranks';
 import { setHp, setMode } from '../game/actions';
@@ -91,6 +92,8 @@ export default function Home() {
           <button className="rounded-lg border border-line" onClick={() => void setHp(20)}>Drained</button>
         </div>
       </SystemWindow>
+
+      <SystemCard />
 
       <SystemWindow title="Recovery mode">
         <Segmented label="Play mode" value={mode} options={[{ id: 'normal', label: 'Normal' }, { id: 'rest', label: 'Rest day' }, { id: 'sick', label: 'Sick / injured' }]}

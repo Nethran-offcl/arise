@@ -8,6 +8,7 @@ import Home from './pages/Home';
 import Log from './pages/Log';
 import Presets from './pages/Presets';
 import Quests from './pages/Quests';
+import Review from './pages/Review';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Stats from './pages/Stats';
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/stats" element={<Stats />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/presets" element={<Presets />} />
+          <Route path="/review" element={<Review />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>

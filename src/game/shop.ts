@@ -88,7 +88,7 @@ export async function useDoubleXp(now = Date.now()): Promise<ActionResult> {
 /** Add your own real-life reward, e.g. "Watch an episode" for 50 gold. */
 export async function addReward(name: string, price: number, icon = '🎁', note?: string): Promise<void> {
   const order = (await db.shop.count()) + 1;
-  await db.shop.put({ id: `reward-${Date.now().toString(36)}`, name: name.trim(), price: Math.max(1, Math.round(price)), kind: 'reward', icon: icon || '🎁', note, builtin: false, order });
+  await db.shop.put({ id: `reward-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, name: name.trim(), price: Math.max(1, Math.round(price)), kind: 'reward', icon: icon || '🎁', note, builtin: false, order });
 }
 
 export const updateShopItem = (item: ShopItem) => db.shop.put({ ...item, price: Math.max(1, Math.round(item.price)) });

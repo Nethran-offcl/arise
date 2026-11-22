@@ -9,6 +9,7 @@ import { effectiveTarget, questProgress, type Quest } from './engine/quests';
 import type { PlayMode } from './engine/types';
 import { pausedCountInRange, toQuestLog } from './game/quests';
 import { getTodayFlags, type DayFlags } from './game/schedule';
+import { loadSnapshot } from './game/system';
 
 /** Live-updating reads: components re-render automatically when the database changes. */
 export const useProfile = () => useLiveQuery(() => db.profile.get(1), []);
@@ -69,3 +70,6 @@ export const useShop = () => useLiveQuery(() => db.shop.orderBy('order').toArray
 export const usePurchases = (n = 15) => useLiveQuery(() => db.purchases.orderBy('ts').reverse().limit(n).toArray(), [n], []);
 export const useInventory = () => useLiveQuery(async () => Object.fromEntries((await db.inventory.toArray()).map((r) => [r.id, r.count])) as Record<string, number>, [], {} as Record<string, number>);
 export const useDoubleXp = () => useLiveQuery(() => getSetting<{ from: number; until: number } | null>('doubleXp', null), [], null);
+
+/** The System engine's view of you (a compact snapshot of recent logs and settings). Live. */
+export const useSnapshot = () => useLiveQuery(() => loadSnapshot(), [], undefined);

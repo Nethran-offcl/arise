@@ -3,9 +3,11 @@ import { QuestCard } from '../components/QuestCard';
 import { SystemWindow } from '../components/SystemWindow';
 import { btnGhost, btnPrimary, Field, inputCls, Sheet } from '../components/ui';
 import { dayKey, dayStartTs } from '../engine/streak';
+import { buildAdvice } from '../engine/system';
 import { acceptAllDaily, addCustomQuest, regenerateDaily, stopRecurring, type CustomQuestInput } from '../game/quests';
+import { setGentleDay } from '../game/system';
 import { DAY_TYPE_LABEL, dayType, setTodayFlags } from '../game/schedule';
-import { useMode, usePresets, useProgress, useQuestBoard, useTemplates, useTodayFlags } from '../hooks';
+import { useMode, usePresets, useProgress, useQuestBoard, useSnapshot, useTemplates, useTodayFlags } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 
 export default function Quests() {
@@ -16,6 +18,8 @@ export default function Quests() {
   const templates = useTemplates();
   const presets = usePresets();
   const say = useCelebrate((s) => s.say);
+  const snap = useSnapshot();
+  const advice = snap ? buildAdvice(snap) : null;
   const [creating, setCreating] = useState(false);
 
   if (!p) return null;
@@ -53,6 +57,17 @@ export default function Quests() {
             </button>
           ))}
         </div>
+        {advice && advice.notes.length > 0 && (
+          <div className="mt-3 rounded-lg border border-line p-3 text-sm">
+            <p className="mb-1 text-xs uppercase tracking-wider text-muted">Why these quests</p>
+            <ul className="space-y-1 text-muted">{advice.notes.map((n) => <li key={n}>• {n}</li>)}</ul>
+          </div>
+        )}
+        {mode === 'normal' && (
+          <button className={`${btnGhost} mt-3 w-full`} onClick={async () => { await setGentleDay(!snap?.forceGentle); await regenerateDaily(); say(snap?.forceGentle ? '[SYSTEM] Back to normal quests.' : '[SYSTEM] Gentle quests set for today. Rest up.'); }}>
+            {snap?.forceGentle ? 'Back to normal quests' : '🛌 Feeling drained? Take a gentle day'}
+          </button>
+        )}
       </SystemWindow>
 
       {emergency.length > 0 && (

@@ -8,6 +8,7 @@ import { setDayStartHour } from '../engine/streak';
 import { DEFAULT_FORMULA, describeFormula, sanitizeFormula, type Difficulty, type Formula } from '../engine/formula';
 import { DEFAULT_DAILY_RECOVERY, DEFAULT_DAY_START_HOUR, resetAllData } from '../game/actions';
 import { seedDemo, wipeDemo } from '../game/demo';
+import { ExamSettings } from '../components/ExamSettings';
 import { downloadBackup, restoreBackup, shareBackup } from '../game/backup';
 import { DAY_NAMES, getSchedule, setSchedule, type DayFlags } from '../game/schedule';
 import { dailyTick } from '../game/startup';
@@ -49,6 +50,8 @@ export default function Settings() {
           options={[{ id: 'easy', label: 'Easy' }, { id: 'normal', label: 'Normal' }, { id: 'hard', label: 'Hard' }]} />
         <p className="mt-2 text-xs text-muted">Easy: gentler penalties, slightly lower rewards. Hard: bigger rewards, firmer penalties.</p>
       </SystemWindow>
+
+      <ExamSettings />
 
       <SystemWindow title="Weekly schedule">
         <p className="mb-2 text-sm text-muted">Tell the System which days you work or have college, so quests fit your week. You can still change any single day on the Quests tab.</p>
