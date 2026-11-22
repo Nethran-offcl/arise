@@ -57,3 +57,4 @@ All data is stored on your phone, inside the browser engine that runs the app (I
 It is erased if you clear Chrome's site data, uninstall the app, or lose the phone, so use Settings > Backup & restore to save a plain JSON file (to Files, Drive or email) and restore it on any device or URL.
 
 
+

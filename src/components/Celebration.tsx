@@ -40,6 +40,26 @@ export function Celebration() {
                 </p>
               </>
             )}
+            {c.kind === 'shadow' && (
+              <>
+                <p className="sys-title">[ Extraction ]</p>
+                <motion.p className="my-3 text-4xl font-black glow-text" initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8 }}>SHADOW EXTRACTED</motion.p>
+                <p className="text-lg font-bold">👤 {c.name}</p>
+                <p className="mt-3 text-muted">[SYSTEM] 21 days of consistency. This habit now fights beside you: a permanent +5% XP in its category.</p>
+              </>
+            )}
+            {c.kind === 'trophy' && (
+              <>
+                <p className="sys-title">[ Trophy{c.items.length > 1 ? 'ies' : ''} unlocked ]</p>
+                <ul className="my-4 space-y-2 text-left">
+                  {c.items.slice(0, 6).map((t) => (
+                    <li key={t.id}><span className="text-xl">{t.icon}</span> <span className="font-bold">{t.name}</span>{t.title && <span className="block pl-8 text-xs text-muted">New title: {t.title}</span>}</li>
+                  ))}
+                  {c.items.length > 6 && <li className="text-sm text-muted">and {c.items.length - 6} more</li>}
+                </ul>
+                <p className="text-sm text-muted">Wear a title from Profile, then Trophies.</p>
+              </>
+            )}
             {c.kind === 'boss' && (
               <>
                 <p className="sys-title">[ Raid Complete ]</p>

@@ -187,6 +187,20 @@ describe('focus timer', () => {
   });
 });
 
+describe('upgrade repairs', () => {
+  it('an open "Drink water: 6 x" quest from before the litres change becomes 2 L', async () => {
+    await dailyTick();
+    const q = (await db.quests.where('key').startsWith(`daily:${dayKey(now0())}:`).toArray()).find((x) => x.presetIds?.[0] === 'water')!;
+    await db.quests.update(q.id!, { target: 6, unit: 'x', title: 'Drink water: 6 x' });
+    await setSetting('seedVersion', 8);
+    await dailyTick();
+    const fixed = (await db.quests.get(q.id!))!;
+    expect(fixed.target).toBe(2);
+    expect(fixed.unit).toBe('L');
+    expect(fixed.title).toBe('Drink water: 2 L');
+  });
+});
+
 describe('backup includes shadows and journal', () => {
   it('round-trips them', async () => {
     await dailyTick();

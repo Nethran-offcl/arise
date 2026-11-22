@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Bar, btnPrimary, Segmented } from '../components/ui';
 import { SystemWindow } from '../components/SystemWindow';
+import { HabitsCard } from '../components/HabitsCard';
 import { SystemCard } from '../components/SystemCard';
 import { TodayQuests } from '../components/TodayQuests';
 import { rankInfoForLevel, RANKS } from '../engine/ranks';
@@ -70,6 +71,8 @@ export default function Home() {
           })()}
         </p>
       )}
+
+      <HabitsCard />
 
       {backupDue && (
         <Link to="/settings" className="sys-window block p-3 text-sm text-accent">

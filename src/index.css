@@ -1,20 +1,59 @@
 @import "tailwindcss";
 
-/* ---- Themes: three palettes swapped via <html data-theme="..."> ---- */
+/* ---- Themes: palettes swapped via <html data-theme="...">.
+   --aura1/--aura2 are soft background lights, --edge is the glowing window border gradient. ---- */
 :root, [data-theme="system"] {
   --bg: #07090f; --panel: #0d1220; --panel-2: #131a2e; --line: #24407a;
   --accent: #4aa3ff; --accent-2: #7a8bff; --glow: 74 163 255;
   --text: #e6ecff; --muted: #93a0c4;
+  --aura1: 74 163 255; --aura2: 122 139 255; --edge: #4aa3ff, #7a8bff, #4aa3ff;
 }
 [data-theme="monarch"] {
   --bg: #08060f; --panel: #120c20; --panel-2: #1a1230; --line: #4b2a8a;
   --accent: #a66bff; --accent-2: #d06bff; --glow: 166 107 255;
   --text: #f0e8ff; --muted: #a99ac9;
+  --aura1: 166 107 255; --aura2: 208 107 255; --edge: #a66bff, #d06bff, #6a3de8;
+}
+/* Crimson Sovereign: blood red and ember */
+[data-theme="crimson"] {
+  --bg: #0b0506; --panel: #1a0a0d; --panel-2: #240d12; --line: #7a1f2b;
+  --accent: #ff4d5e; --accent-2: #ff9d4d; --glow: 255 77 94;
+  --text: #ffeceb; --muted: #c9a0a4;
+  --aura1: 255 60 80; --aura2: 255 150 60; --edge: #ff4d5e, #ff9d4d, #c4162a;
+}
+/* Divine Gold: black and royal gold */
+[data-theme="gold"] {
+  --bg: #0a0805; --panel: #17120a; --panel-2: #211a0d; --line: #8a6a1f;
+  --accent: #ffcf4a; --accent-2: #fff1a8; --glow: 255 207 74;
+  --text: #fff8e1; --muted: #c9b98a;
+  --aura1: 255 200 60; --aura2: 255 240 170; --edge: #ffcf4a, #fff1a8, #b8861b;
+}
+/* Emerald Gate: toxic green dungeon */
+[data-theme="emerald"] {
+  --bg: #04090a; --panel: #08161a; --panel-2: #0b2026; --line: #17715f;
+  --accent: #2dffb0; --accent-2: #3ad0ff; --glow: 45 255 176;
+  --text: #e4fff6; --muted: #8fc7b6;
+  --aura1: 45 255 176; --aura2: 58 208 255; --edge: #2dffb0, #3ad0ff, #0f9d72;
+}
+/* Frozen Abyss: ice and deep ocean */
+[data-theme="frost"] {
+  --bg: #04080f; --panel: #0a1424; --panel-2: #0f1d33; --line: #2c6a9a;
+  --accent: #7fe3ff; --accent-2: #c7f1ff; --glow: 127 227 255;
+  --text: #eaf8ff; --muted: #9bbdd0;
+  --aura1: 127 227 255; --aura2: 90 140 255; --edge: #7fe3ff, #c7f1ff, #3a8fd0;
+}
+/* Void Neon: black with magenta and cyan */
+[data-theme="void"] {
+  --bg: #050507; --panel: #0d0b14; --panel-2: #15101f; --line: #5a2a7a;
+  --accent: #ff3df2; --accent-2: #3dfcff; --glow: 255 61 242;
+  --text: #fbeaff; --muted: #b59ac4;
+  --aura1: 255 61 242; --aura2: 61 252 255; --edge: #ff3df2, #3dfcff, #ff3df2;
 }
 [data-theme="minimal"] {
   --bg: #0b0b0c; --panel: #151516; --panel-2: #1c1c1e; --line: #333336;
   --accent: #d4d4d8; --accent-2: #a1a1aa; --glow: 0 0 0;
   --text: #f4f4f5; --muted: #a1a1aa;
+  --aura1: 0 0 0; --aura2: 0 0 0; --edge: #333336, #333336, #333336;
 }
 
 @theme inline {
@@ -26,18 +65,36 @@
 
 html, body, #root { height: 100%; }
 body {
-  margin: 0; background: var(--bg); color: var(--text);
+  margin: 0; color: var(--text);
+  background:
+    radial-gradient(ellipse 80% 40% at 15% -5%, rgb(var(--aura1) / .22), transparent 70%),
+    radial-gradient(ellipse 70% 35% at 95% 105%, rgb(var(--aura2) / .16), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
   font-family: var(--font-sys); font-size: 16px; line-height: 1.5;
   -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none;
 }
 /* System-window box: thin glowing border */
 .sys-window {
+  position: relative;
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
   border: 1px solid var(--line); border-radius: 10px;
   box-shadow: 0 0 18px rgb(var(--glow) / .18), inset 0 0 20px rgb(var(--glow) / .05);
+  animation: sys-pulse 5s ease-in-out infinite;
+}
+/* A thin gradient light along the top edge of every window */
+.sys-window::before {
+  content: ""; position: absolute; left: 12px; right: 12px; top: -1px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent); opacity: .9;
+}
+@keyframes sys-pulse {
+  0%, 100% { box-shadow: 0 0 14px rgb(var(--glow) / .16), inset 0 0 20px rgb(var(--glow) / .05); }
+  50% { box-shadow: 0 0 26px rgb(var(--glow) / .34), inset 0 0 26px rgb(var(--glow) / .09); }
 }
 .sys-title { letter-spacing: .18em; text-transform: uppercase; font-size: .72rem; color: var(--accent); }
-.glow-text { text-shadow: 0 0 12px rgb(var(--glow) / .7); }
+.glow-text { text-shadow: 0 0 12px rgb(var(--glow) / .7), 0 0 28px rgb(var(--glow) / .35); }
+[data-theme="minimal"] .sys-window { animation: none; }
+[data-theme="minimal"] .sys-window::before { display: none; }
 button { min-height: 44px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

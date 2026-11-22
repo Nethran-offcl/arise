@@ -1,13 +1,17 @@
 import { create } from 'zustand';
+import { play } from '../lib/sfx';
 import type { LogResult } from '../game/actions';
 import type { QuestCompletion } from '../game/quests';
+import type { UnlockedTrophy } from '../game/trophies';
 import type { PenaltyQuestHint } from '../engine/types';
 
 export type Celebration =
   | { kind: 'level'; level: number; points: number }
   | { kind: 'rank'; rank: string }
   | { kind: 'penaltyQuest'; hint: PenaltyQuestHint; refund: number }
-  | { kind: 'boss'; name: string; xp: number; gold: number };
+  | { kind: 'boss'; name: string; xp: number; gold: number }
+  | { kind: 'shadow'; name: string }
+  | { kind: 'trophy'; items: UnlockedTrophy[] };
 
 interface State {
   queue: Celebration[];
@@ -17,7 +21,7 @@ interface State {
   say: (msg: string, ms?: number) => void;
   /** Toast and ceremonies for quests that were just completed. */
   announceQuests: (list: QuestCompletion[]) => void;
-  /** Turns the result of a log into a toast plus any ceremonies. */
+  /** Turns the result of a log into a toast plus any ceremonies and sounds. */
   announce: (r: LogResult) => void;
 }
 
@@ -35,7 +39,9 @@ export const useCelebrate = create<State>((set, get) => ({
   },
   announceQuests: (list) => {
     for (const c of list) if (c.kind === 'boss') get().push({ kind: 'boss', name: c.bossName ?? c.title, xp: c.xp, gold: c.gold });
-    if (list.length) get().say(`[SYSTEM] Quest complete: ${list.map((c) => c.title).join(', ')} (+${list.reduce((s, c) => s + c.xp, 0).toLocaleString()} XP, +${list.reduce((s, c) => s + c.gold, 0)} gold)`, 6000);
+    if (!list.length) return;
+    play(list.some((c) => c.kind === 'boss') ? 'boss' : 'quest');
+    get().say(`[SYSTEM] Quest complete: ${list.map((c) => c.title).join(', ')} (+${list.reduce((s, c) => s + c.xp, 0).toLocaleString()} XP, +${list.reduce((s, c) => s + c.gold, 0)} gold)`, 6000);
   },
   announce: (r) => {
     const { say, push } = get();
@@ -46,19 +52,31 @@ export const useCelebrate = create<State>((set, get) => ({
           : `[SYSTEM] Course correction noted: ${r.xp} XP, ${r.hp} HP. Tomorrow is a new day.`,
       );
       if (r.penaltyQuest) push({ kind: 'penaltyQuest', hint: r.penaltyQuest, refund: Math.abs(r.xp) });
-      return;
+    } else {
+      const gains = Object.entries(r.statGains)
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k} +${v}`)
+        .join(' ');
+      const bonus = r.perfBonus > 0 ? ` · progress +${Math.round(r.perfBonus * 100)}%` : '';
+      say(`[SYSTEM] ${r.pr ? 'NEW PERSONAL RECORD! ' : ''}+${r.xp.toLocaleString()} XP · +${r.gold} gold${bonus}${gains ? ' · ' + gains : ''}`);
+      if (r.pr) play('pr');
+      get().announceQuests(r.questsCompleted);
     }
-    const gains = Object.entries(r.statGains)
-      .filter(([, v]) => v)
-      .map(([k, v]) => `${k} +${v}`)
-      .join(' ');
-    const bonus = r.perfBonus > 0 ? ` · progress +${Math.round(r.perfBonus * 100)}%` : '';
-    say(`[SYSTEM] ${r.pr ? 'NEW PERSONAL RECORD! ' : ''}+${r.xp.toLocaleString()} XP · +${r.gold} gold${bonus}${gains ? ' · ' + gains : ''}`);
-    get().announceQuests(r.questsCompleted);
     if (r.levelAfter > r.levelBefore) {
-      try { navigator.vibrate?.([80, 40, 80]); } catch { /* vibration not supported */ }
+      play('level');
       push({ kind: 'level', level: r.levelAfter, points: (r.levelAfter - r.levelBefore) * 3 });
     }
-    if (r.rankAfter !== r.rankBefore) push({ kind: 'rank', rank: r.rankAfter });
+    if (r.rankAfter !== r.rankBefore) {
+      play('rank');
+      push({ kind: 'rank', rank: r.rankAfter });
+    }
+    for (const s of r.shadowsExtracted) {
+      play('shadow');
+      push({ kind: 'shadow', name: s.name });
+    }
+    if (r.trophiesUnlocked.length) {
+      play('trophy');
+      push({ kind: 'trophy', items: r.trophiesUnlocked });
+    }
   },
 }));

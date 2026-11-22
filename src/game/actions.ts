@@ -75,8 +75,9 @@ export async function setHp(hp: number): Promise<void> {
  *  v6: adds the hidden "Daily quests missed" penalty used by the quest system.
  *  v7: water is measured in litres (2 L a day) and sleep gets a reward cap.
  *  v8: adds the Focus session task and the Okay meal task.
+ *  v9: repairs open water quests created before water moved to litres (they would ask for 6 L).
  */
-export const SEED_VERSION = 8;
+export const SEED_VERSION = 9;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -89,6 +90,7 @@ async function migrateSeed(): Promise<void> {
   if (v < 4) await mergeSportsIntoCardio();
   if (v < 5) await mindToCore();
   if (v < 7) await waterAndSleep();
+  if (v < 9) await fixOldWaterQuests();
   if (v < 8) {
     for (const id of ['focus', 'meal-okay']) if (!(await db.presets.get(id))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === id)!);
   }
@@ -129,6 +131,17 @@ export async function waterAndSleep(): Promise<void> {
     }
     const sleep = await db.presets.get('sleep-hours');
     if (sleep?.builtin) await db.presets.update('sleep-hours', { rewardCap: 9, name: 'Sleep' });
+  });
+}
+
+/** v9: an open "Drink water: 6 x" quest from the glasses era becomes "Drink water: 2 L". */
+export async function fixOldWaterQuests(): Promise<void> {
+  await db.transaction('rw', db.quests, async () => {
+    for (const q of await db.quests.toArray()) {
+      if (q.presetIds?.[0] === 'water' && q.unit === 'x' && (q.status === 'offered' || q.status === 'active')) {
+        await db.quests.update(q.id!, { target: 2, unit: 'L', title: 'Drink water: 2 L', desc: 'Log it whenever suits you, even once at the end of the day.' });
+      }
+    }
   });
 }
 

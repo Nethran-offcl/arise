@@ -13,6 +13,7 @@ import { downloadBackup, restoreBackup, shareBackup } from '../game/backup';
 import { DAY_NAMES, getSchedule, setSchedule, type DayFlags } from '../game/schedule';
 import { dailyTick } from '../game/startup';
 import { getSleepTargets, setSleepTargets } from '../game/sleep';
+import { getSfxPrefs, play, saveSfxPrefs } from '../lib/sfx';
 import { useFormula } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
 
@@ -23,6 +24,8 @@ export default function Settings() {
   const dayStart = useLiveQuery(() => getSetting<number>('dayStartHour', DEFAULT_DAY_START_HOUR), [], DEFAULT_DAY_START_HOUR);
   const lastBackup = useLiveQuery(() => getSetting<number | null>('lastBackup', null), [], null);
   const schedule = useLiveQuery(getSchedule, [], undefined);
+  const sfx = useLiveQuery(async () => ({ ...getSfxPrefs(), ...(await getSetting<Partial<{ sound: boolean; haptics: boolean }>>('sfx', {})) }), [], getSfxPrefs());
+  const ritual = useLiveQuery(() => getSetting<boolean>('ritualEnabled', true), [], true);
   const sleepTargets = useLiveQuery(getSleepTargets, [], undefined);
   const [persisted, setPersisted] = useState<boolean | null>(null);
   const [usedMb, setUsedMb] = useState<string>('');
@@ -49,6 +52,22 @@ export default function Settings() {
         <Segmented<Difficulty> label="Difficulty" value={formula.difficulty} onChange={(d) => save({ ...formula, difficulty: d })}
           options={[{ id: 'easy', label: 'Easy' }, { id: 'normal', label: 'Normal' }, { id: 'hard', label: 'Hard' }]} />
         <p className="mt-2 text-xs text-muted">Easy: gentler penalties, slightly lower rewards. Hard: bigger rewards, firmer penalties.</p>
+      </SystemWindow>
+
+      <SystemWindow title="Sounds & feel">
+        <div className="space-y-3">
+          {([['sound', 'Sound effects'], ['haptics', 'Vibration']] as const).map(([k, label]) => (
+            <label key={k} className="flex items-center justify-between gap-3">
+              <span>{label}</span>
+              <input type="checkbox" className="h-6 w-6" checked={sfx[k]} onChange={async (e) => { await saveSfxPrefs({ ...sfx, [k]: e.target.checked }); if (e.target.checked) play('tap'); }} />
+            </label>
+          ))}
+          <label className="flex items-center justify-between gap-3">
+            <span>Daily login screen</span>
+            <input type="checkbox" className="h-6 w-6" checked={ritual} onChange={(e) => void setSetting('ritualEnabled', e.target.checked)} />
+          </label>
+          <button className={`${btnGhost} w-full`} onClick={() => play('level')}>Test the level-up sound</button>
+        </div>
       </SystemWindow>
 
       <ExamSettings />
