@@ -282,6 +282,22 @@ export async function acceptAllDaily(now = Date.now()): Promise<void> {
   for (const q of list) await db.quests.update(q.id!, { status: 'active', acceptedAt: now });
 }
 
+/** Kinds you choose to accept, so you can also take that back. */
+const UNDOABLE: Quest['kind'][] = ['daily', 'weekly', 'emergency'];
+export const canUndoQuest = (q: Pick<Quest, 'kind'>): boolean => UNDOABLE.includes(q.kind);
+
+/** Changed your mind after accepting? Puts the quest back to "new". It never counts against you. */
+export async function unacceptQuest(id: number): Promise<void> {
+  const q = await db.quests.get(id);
+  if (q && q.status === 'active' && canUndoQuest(q)) await db.quests.update(id, { status: 'offered', acceptedAt: undefined });
+}
+
+/** Skipped by mistake? Brings it back, as long as its day or week is not over. */
+export async function restoreQuest(id: number, now = Date.now()): Promise<void> {
+  const q = await db.quests.get(id);
+  if (q && q.status === 'skipped' && canUndoQuest(q) && (q.periodEnd === null || now < q.periodEnd)) await db.quests.update(id, { status: 'offered', acceptedAt: undefined });
+}
+
 /** Skipping never costs anything. */
 export async function skipQuest(id: number): Promise<void> {
   const q = await db.quests.get(id);

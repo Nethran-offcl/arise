@@ -1,5 +1,5 @@
 import { payout } from '../engine/quests';
-import { acceptQuest, skipQuest } from '../game/quests';
+import { acceptQuest, canUndoQuest, restoreQuest, skipQuest, unacceptQuest } from '../game/quests';
 import type { QuestRow } from '../hooks';
 import { Bar, btnGhost } from './ui';
 
@@ -58,9 +58,15 @@ export function QuestCard({ row, level, rankMult, passive }: Props) {
         <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
           {q.status === 'offered'
             ? <button className="min-h-11 rounded-lg bg-accent font-semibold text-black" onClick={() => void acceptQuest(q.id!)}>Accept</button>
-            : <span className="flex items-center text-xs text-muted">Counts automatically as you log.</span>}
+            : canUndoQuest(q)
+              ? <button className={btnGhost} onClick={() => void unacceptQuest(q.id!)}>Undo accept</button>
+              : <span className="flex items-center text-xs text-muted">Counts automatically as you log.</span>}
           <button className={btnGhost} onClick={() => void skipQuest(q.id!)}>Skip</button>
         </div>
+      )}
+      {!passive && q.status === 'active' && canUndoQuest(q) && <p className="mt-1 text-xs text-muted">Counts automatically as you log.</p>}
+      {!passive && q.status === 'skipped' && canUndoQuest(q) && (q.periodEnd === null || q.periodEnd > Date.now()) && (
+        <button className={`${btnGhost} mt-2 text-sm`} onClick={() => void restoreQuest(q.id!)}>Undo skip</button>
       )}
     </li>
   );

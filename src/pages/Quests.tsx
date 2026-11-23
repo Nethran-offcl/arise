@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LastRaid } from '../components/LastRaid';
 import { QuestCard } from '../components/QuestCard';
 import { SystemWindow } from '../components/SystemWindow';
 import { btnGhost, btnPrimary, Field, inputCls, Sheet } from '../components/ui';
@@ -102,6 +103,8 @@ export default function Quests() {
           <ul className="space-y-2">{weekly.map((r) => <QuestCard key={r.q.id} row={r} level={level} rankMult={rankMult} />)}</ul>
         </SystemWindow>
       )}
+
+      <LastRaid board={board} />
 
       <SystemWindow title="My quests">
         {custom.length === 0 && templates.filter((t) => t.active).length === 0 && <p className="mb-2 text-sm text-muted">Create your own goals, one-off or repeating.</p>}

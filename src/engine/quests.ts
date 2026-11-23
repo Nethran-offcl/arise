@@ -361,3 +361,50 @@ export const MILESTONES: MilestoneDef[] = [
   { id: 'streak30', title: '30-day streak', desc: 'A whole month without breaking the chain.', metric: 'streak', target: 30, unit: 'days', effort: 1200, gold: 400 },
   { id: 'streak100', title: '100-day streak', desc: 'One hundred days in a row.', metric: 'streak', target: 100, unit: 'days', effort: 4000, gold: 1200 },
 ];
+
+// ---------- last week's raid recap ----------
+
+export interface RaidRecap {
+  bossName: string;
+  status: QuestStatus;
+  /** Boss HP after rest/sick adjustments. */
+  target: number;
+  dealt: number;
+  remaining: number;
+  /** 0 to 100 */
+  percent: number;
+  paidXp: number;
+  paidGold: number;
+  /** Boss reward you would have earned, at today's level. */
+  weekly: { title: string; status: QuestStatus; progress: number; target: number; unit: string }[];
+  endedAt: number;
+}
+
+const RECAP_DAYS = 7;
+
+/**
+ * How the most recent finished week ended: the boss and the weekly quests, so a reset never makes progress vanish
+ * silently. Shown for the 7 days after a week ends. Progress is worked out from your logs, so it is always accurate.
+ */
+export function lastRaidRecap(rows: { q: Quest; progress: number; target: number }[], now: number): RaidRecap | null {
+  const ended = rows
+    .filter((r) => r.q.kind === 'boss' && r.q.periodEnd !== null && r.q.periodEnd <= now)
+    .sort((a, b) => b.q.periodEnd! - a.q.periodEnd!)[0];
+  if (!ended || now - ended.q.periodEnd! > RECAP_DAYS * 86_400_000) return null;
+  const { q, progress, target } = ended;
+  const dealt = Math.min(progress, target);
+  return {
+    bossName: q.bossName ?? q.title,
+    status: q.status,
+    target,
+    dealt,
+    remaining: Math.max(0, target - progress),
+    percent: Math.min(100, Math.round((progress / Math.max(1, target)) * 100)),
+    paidXp: q.paidXp ?? 0,
+    paidGold: q.paidGold ?? 0,
+    weekly: rows
+      .filter((r) => r.q.kind === 'weekly' && r.q.periodStart === q.periodStart && r.q.periodEnd === q.periodEnd)
+      .map((r) => ({ title: r.q.title, status: r.q.status, progress: Math.min(r.progress, r.target), target: r.target, unit: r.q.unit })),
+    endedAt: q.periodEnd!,
+  };
+}
