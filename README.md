@@ -73,11 +73,11 @@ You never have to log everything. Even one small task keeps your streak alive.
 **HP / energy.** Tiring tasks cost HP in proportion to time, distance and intensity. HP comes back from sleep, rest, and +30 per day automatically (editable). You can always set it by hand.
 
 **Quests.**
-- **Daily (3 to 5)**: always a movement quest, 2 L of water and a reading/learning quest, plus office tasks or study depending on your day type, and a few more picked from areas you have neglected.
+- **Daily (3 to 5)**: always a movement quest, 2 L of water and one flexible **Work or study** quest (counts work, studying, focus sessions, writing, building, practising a skill, courses, reading or learning something new), plus a few more picked from areas you have neglected.
 - **Weekly (3) and the Boss Raid**: every task you log damages the weekly boss. Rest and sick days shrink its HP so being unwell never makes it unbeatable.
 - **Emergency quests** (about one day in seven) and **8 milestones** (First 5 km, Run 3 km ten times, streaks and more).
 - **Your own quests**: one-off or repeating.
-- Skipping is always free. A small penalty only applies if you **accept** quests and finish **none** that day.
+- Skipping is always free, and your first skip each day on a daily quest brings a free replacement quest (Undo skip takes it back). A small penalty only applies if you **accept** quests and finish **none** that day.
 - Clear the whole daily set for a bonus.
 
 **The System coach (works offline).** It reads your recent logs and adapts:

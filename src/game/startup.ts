@@ -1,5 +1,5 @@
 import { ensureSeed } from './actions';
-import { ensureQuests, settleQuests, type QuestCompletion } from './quests';
+import { ensureQuests, refreshQuestDesign, settleQuests, type QuestCompletion } from './quests';
 import { processRollover, type RolloverSummary } from './rollover';
 import { ensureShopSeed } from './shop';
 
@@ -14,6 +14,7 @@ export async function dailyTick(now = Date.now()): Promise<TickSummary> {
   await ensureShopSeed();
   const summary = await processRollover(now);
   await ensureQuests(now);
+  await refreshQuestDesign(now); // one time: swap old study/office quests for "Work or study"
   const completed = await settleQuests(now); // pays quests that are already satisfied by earlier logs
   return { ...summary, completed };
 }

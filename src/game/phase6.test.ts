@@ -116,7 +116,8 @@ describe('trophies and titles', () => {
     expect(r.trophiesUnlocked.map((t) => t.id)).toContain('boss-1');
     expect(await getSetting<number>('bossesDefeatedTotal', 0)).toBe(1);
     for (const q of await db.quests.where('key').startsWith(`daily:${dayKey(now0())}:`).toArray()) {
-      await logActivity({ ...base, presetId: q.presetIds![0], qty: q.metric === 'logs' ? 1 : q.target, ts: now0() });
+      const input = q.metric === 'effort' ? { presetId: 'study', qty: q.target / 40 + 0.1 } : { presetId: q.presetIds![0], qty: q.metric === 'logs' ? 1 : q.target };
+      await logActivity({ ...base, ...input, ts: now0() });
     }
     expect(await getSetting<number>('dailySetsCleared', 0)).toBe(1);
   });

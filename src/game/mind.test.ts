@@ -93,44 +93,55 @@ describe('Core raises Intelligence and Sense evenly', () => {
   });
 });
 
-describe('daily mind quest', () => {
+describe('daily Work or study quest (study, work and learning share one quest)', () => {
   const ctx: DailyCtx = { flags: { work: false, college: false }, weekday: 3, questMult: 1, seed: 1, runsLast7: 0, ranYesterday: false, gymLast7: 0, effortByCategory: {}, exclude: [] };
-  const MIND = ['reading', 'skill-practice', 'course', 'learn', 'create'];
 
-  it('every day includes a reading or learning quest, even on a day with no college', () => {
-    for (let seed = 1; seed < 60; seed++) {
-      const q = planDaily({ ...ctx, seed }, DEFAULT_PRESETS).map((x) => x.presetIds![0]);
-      expect(q.filter((id) => MIND.includes(id)).length).toBeGreaterThanOrEqual(1);
+  it('is on every normal day, even with no college and no work', () => {
+    for (const flags of [{ work: false, college: false }, { work: true, college: false }, { work: false, college: true }, { work: true, college: true }]) {
+      for (let seed = 1; seed < 30; seed++) {
+        expect(planDaily({ ...ctx, flags, seed }, DEFAULT_PRESETS).some((q) => q.slug === 'workstudy')).toBe(true);
+      }
     }
   });
-  it('rotates between different kinds of learning', () => {
-    const kinds = new Set<string>();
-    for (let seed = 1; seed < 80; seed++) for (const x of planDaily({ ...ctx, seed }, DEFAULT_PRESETS)) if (MIND.includes(x.presetIds![0])) kinds.add(x.presetIds![0]);
-    expect(kinds.size).toBeGreaterThanOrEqual(4);
+
+  it('is completed by learning, creating or practising: no study session needed', async () => {
+    await dailyTick();
+    const q = (await db.quests.where('key').startsWith(`daily:`).toArray()).find((x) => x.key.endsWith(':workstudy'))!;
+    expect(q.status).toBe('offered');
+    const r = await logActivity({ ...base, presetId: 'create', qty: Math.ceil(q.target / 0.9) + 1, ts: Date.now() });
+    expect(r.questsCompleted.some((c) => c.title === q.title)).toBe(true);
   });
+
+  it('office work and study sessions add up toward the same quest', async () => {
+    await dailyTick();
+    const q = (await db.quests.where('key').startsWith(`daily:`).toArray()).find((x) => x.key.endsWith(':workstudy'))!;
+    const half = await logActivity({ ...base, presetId: 'office', qty: 2, ts: Date.now() - 1000 }); // 40 effort
+    expect(half.questsCompleted.some((c) => c.title === q.title)).toBe(false);
+    const rest = await logActivity({ ...base, presetId: 'study', qty: 1, ts: Date.now() }); // + 40 effort
+    expect(rest.questsCompleted.some((c) => c.title === q.title)).toBe(true);
+  });
+
   it('on a recovery day it is gentle reading only', () => {
     const adapt = { gentle: true, noHard: true, runTarget: null, physicalScale: 0.6, study: null, examWeeklyStudy: null };
     for (let seed = 1; seed < 30; seed++) {
-      const ids = planDaily({ ...ctx, seed, adapt }, DEFAULT_PRESETS).map((x) => x.presetIds![0]);
-      expect(ids.filter((id) => MIND.includes(id))).toEqual(['reading']);
+      const slugs = planDaily({ ...ctx, seed, adapt }, DEFAULT_PRESETS).map((x) => x.slug);
+      expect(slugs).toContain('reading');
+      expect(slugs).not.toContain('workstudy');
     }
   });
+
   it('keeps the set at 3 to 5 quests with no duplicates, even on a work + college day', () => {
     for (let seed = 1; seed < 60; seed++) {
       const q = planDaily({ ...ctx, flags: { work: true, college: true }, seed }, DEFAULT_PRESETS);
       expect(q.length).toBeLessThanOrEqual(5);
       expect(q.length).toBeGreaterThanOrEqual(3);
-      expect(new Set(q.map((x) => x.presetIds![0])).size).toBe(q.length);
+      expect(new Set(q.map((x) => x.slug)).size).toBe(q.length);
     }
   });
+
   it('works if you deleted the learning tasks', () => {
-    const only = DEFAULT_PRESETS.filter((p) => !MIND.includes(p.id));
-    expect(() => planDaily(ctx, only)).not.toThrow();
-  });
-  it('shows up in the real quest list', async () => {
-    await dailyTick();
-    const ids = (await db.quests.where('kind').equals('daily').toArray()).map((q) => q.presetIds![0]);
-    expect(ids.some((id) => MIND.includes(id))).toBe(true);
+    const MIND = ['reading', 'skill-practice', 'course', 'learn', 'create'];
+    expect(() => planDaily(ctx, DEFAULT_PRESETS.filter((p) => !MIND.includes(p.id)))).not.toThrow();
   });
 });
 

@@ -1,3 +1,4 @@
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { LastRaid } from '../components/LastRaid';
 import { QuestCard } from '../components/QuestCard';
@@ -5,8 +6,9 @@ import { SystemWindow } from '../components/SystemWindow';
 import { btnGhost, btnPrimary, Field, inputCls, Sheet } from '../components/ui';
 import { dayKey, dayStartTs } from '../engine/streak';
 import { buildAdvice } from '../engine/system';
-import { acceptAllDaily, addCustomQuest, regenerateDaily, stopRecurring, type CustomQuestInput } from '../game/quests';
+import { acceptAllDaily, addCustomQuest, FREE_REPLACEMENTS_PER_DAY, regenerateDaily, stopRecurring, type CustomQuestInput } from '../game/quests';
 import { setGentleDay } from '../game/system';
+import { getSetting } from '../db/db';
 import { DAY_TYPE_LABEL, dayType, setTodayFlags } from '../game/schedule';
 import { useMode, usePresets, useProgress, useQuestBoard, useSnapshot, useTemplates, useTodayFlags } from '../hooks';
 import { useCelebrate } from '../store/celebrate';
@@ -22,6 +24,7 @@ export default function Quests() {
   const snap = useSnapshot();
   const advice = snap ? buildAdvice(snap) : null;
   const [creating, setCreating] = useState(false);
+  const replacedToday = useLiveQuery(() => getSetting<number>(`replaced:${dayKey(Date.now())}`, 0), [], 0);
 
   if (!p) return null;
   const rankMult = p.rank.rewardMult;
@@ -83,9 +86,9 @@ export default function Quests() {
         {dailies.length > 0 && (
           <>
             {anyOffered && <button className={`${btnPrimary} mb-3`} onClick={() => void acceptAllDaily()}>Accept all</button>}
-            <ul className="space-y-2">{dailies.map((r) => <QuestCard key={r.q.id} row={r} level={level} rankMult={rankMult} />)}</ul>
+            <ul className="space-y-2">{dailies.map((r) => <QuestCard key={r.q.id} row={r} level={level} rankMult={rankMult} canReplace={replacedToday < FREE_REPLACEMENTS_PER_DAY} replacedByTitle={board.find((b) => b.q.id === r.q.replacedBy)?.q.title} />)}</ul>
             <p className="mt-3 text-xs text-muted">
-              Skip anything you like, it never costs you. A small penalty only applies if you accept quests and finish none that day. Clear the whole set for a bonus.
+              Skip anything you like, it never costs you, and your first skip each day gets a free replacement. A small penalty only applies if you accept quests and finish none that day. Clear the whole set for a bonus.
             </p>
           </>
         )}

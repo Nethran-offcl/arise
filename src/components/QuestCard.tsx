@@ -1,6 +1,7 @@
 import { payout } from '../engine/quests';
 import { acceptQuest, canUndoQuest, restoreQuest, skipQuest, unacceptQuest } from '../game/quests';
 import type { QuestRow } from '../hooks';
+import { useCelebrate } from '../store/celebrate';
 import { Bar, btnGhost } from './ui';
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : (Math.round(n * 10) / 10).toString());
@@ -19,10 +20,15 @@ interface Props {
   rankMult: number;
   /** Hide Accept/Skip (used for the boss and milestones). */
   passive?: boolean;
+  /** Today's free replacement is still available (skipping a daily quest gives you a new one). */
+  canReplace?: boolean;
+  /** Title of the quest that replaced this one when it was skipped. */
+  replacedByTitle?: string;
 }
 
 /** One quest: title, live progress, what it pays right now, and Accept / Skip. */
-export function QuestCard({ row, level, rankMult, passive }: Props) {
+export function QuestCard({ row, level, rankMult, passive, canReplace, replacedByTitle }: Props) {
+  const say = useCelebrate((s) => s.say);
   const { q, progress, target } = row;
   const pay = payout(q, level, rankMult);
   const done = q.status === 'completed';
@@ -61,9 +67,13 @@ export function QuestCard({ row, level, rankMult, passive }: Props) {
             : canUndoQuest(q)
               ? <button className={btnGhost} onClick={() => void unacceptQuest(q.id!)}>Undo accept</button>
               : <span className="flex items-center text-xs text-muted">Counts automatically as you log.</span>}
-          <button className={btnGhost} onClick={() => void skipQuest(q.id!)}>Skip</button>
+          <button className={btnGhost} onClick={async () => {
+            const { replacement } = await skipQuest(q.id!);
+            say(replacement ? `[SYSTEM] Skipped. A free replacement took its place: ${replacement.title}` : q.kind === 'daily' ? '[SYSTEM] Skipped. Today\'s free replacement is already used.' : '[SYSTEM] Skipped.', 5000);
+          }}>{q.kind === 'daily' && canReplace ? 'Skip → new quest' : 'Skip'}</button>
         </div>
       )}
+      {q.status === 'skipped' && replacedByTitle && <p className="mt-1 text-xs text-muted">Replaced by: {replacedByTitle}</p>}
       {!passive && q.status === 'active' && canUndoQuest(q) && <p className="mt-1 text-xs text-muted">Counts automatically as you log.</p>}
       {!passive && q.status === 'skipped' && canUndoQuest(q) && (q.periodEnd === null || q.periodEnd > Date.now()) && (
         <button className={`${btnGhost} mt-2 text-sm`} onClick={() => void restoreQuest(q.id!)}>Undo skip</button>

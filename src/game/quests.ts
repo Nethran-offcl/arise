@@ -242,6 +242,43 @@ export async function regenerateDaily(now = Date.now()): Promise<void> {
   await ensureQuestsExcludingAccepted(now);
 }
 
+/**
+ * One-time refresh when the quest design changed ("Work or study" replaced separate study / office / mind quests):
+ * quests you have not accepted yet are swapped for the new ones, so you do not wait until tomorrow or Monday.
+ * Anything you accepted or already progressed is left alone.
+ */
+export async function refreshQuestDesign(now = Date.now()): Promise<void> {
+  if ((await getSetting<number>('questDesign', 1)) >= 2) return;
+  await setSetting('questDesign', 2);
+  const today = dayKey(now);
+  const wk = weekStartKey(today);
+  const OLD_DAILY = ['study', 'office', 'skill-practice', 'course', 'learn', 'create'];
+  const dailies = await db.quests.where('key').startsWith(`daily:${today}:`).toArray();
+  const hasNew = dailies.some((q) => slugOf(q.key) === 'workstudy');
+  if (!hasNew && dailies.some((q) => q.status === 'offered' && OLD_DAILY.includes(slugOf(q.key)))) await regenerateDaily(now);
+
+  await db.transaction('rw', questTables(), async () => {
+    const weekly = await db.quests.where('key').startsWith(`weekly:${wk}:`).toArray();
+    if (weekly.some((q) => slugOf(q.key) === 'workstudy')) return;
+    const [presets, logs, schedule, profile] = await Promise.all([db.presets.toArray(), db.logs.toArray(), getSchedule(), ensureProfile()]);
+    const advice = buildAdvice(await loadSnapshot(now));
+    const examOn = !!advice.adapt.examWeeklyStudy;
+    // an old, untouched "Study N hours" quest is replaced (unless exam mode wants it)
+    for (const q of weekly) if (!examOn && slugOf(q.key) === 'study' && q.status === 'offered') await db.quests.delete(q.id!);
+    const rank = rankInfoForLevel(levelFromXp(profile.totalXp).level);
+    const recent = recentContext(logs, now);
+    const hasCollege = Object.values(schedule).some((d) => d.college);
+    const wStart = dayStartTs(wk);
+    const wEnd = dayStartTs(shiftDay(wk, 7));
+    for (const d of planWeekly({ questMult: rank.questMult, lastWeekRuns: recent.lastWeekRuns, hasCollege, adapt: advice.adapt }, presets)) {
+      await addIfNew(buildQuest(d, `weekly:${wk}:${d.slug}`, 'weekly', 'weekly', presets, [wStart, wEnd], now));
+    }
+  });
+}
+
+/** The last part of a quest key ("daily:2026-11-23:run" -> "run"): the task or quest type it stands for. */
+const slugOf = (key: string): string => key.split(':').pop() ?? key;
+
 /** Like ensureQuests but only fills today's dailies, skipping tasks that already have an accepted quest. */
 async function ensureQuestsExcludingAccepted(now: number): Promise<void> {
   const today = dayKey(now);
@@ -258,7 +295,7 @@ async function ensureQuestsExcludingAccepted(now: number): Promise<void> {
     const ctx: DailyCtx = {
       flags, weekday: weekdayOf(today), questMult: rank.questMult, seed: hashString(`${today}|${flags.work}|${flags.college}|${regen}`),
       runsLast7: recent.runsLast7, ranYesterday: recent.ranYesterday, gymLast7: recent.gymLast7, effortByCategory: recent.effortByCategory,
-      exclude: existing.flatMap((q) => q.presetIds ?? []), adapt: advice.adapt,
+      exclude: existing.map((q) => slugOf(q.key)), adapt: advice.adapt,
     };
     let total = existing.length;
     for (const d of planDaily(ctx, presets)) {
@@ -292,16 +329,69 @@ export async function unacceptQuest(id: number): Promise<void> {
   if (q && q.status === 'active' && canUndoQuest(q)) await db.quests.update(id, { status: 'offered', acceptedAt: undefined });
 }
 
-/** Skipped by mistake? Brings it back, as long as its day or week is not over. */
+/**
+ * Skipped by mistake? Brings it back, as long as its day or week is not over. If its free replacement is still
+ * untouched, that replacement is removed and you get the free replacement back for later.
+ */
 export async function restoreQuest(id: number, now = Date.now()): Promise<void> {
-  const q = await db.quests.get(id);
-  if (q && q.status === 'skipped' && canUndoQuest(q) && (q.periodEnd === null || now < q.periodEnd)) await db.quests.update(id, { status: 'offered', acceptedAt: undefined });
+  await db.transaction('rw', questTables(), async () => {
+    const q = await db.quests.get(id);
+    if (!q || q.status !== 'skipped' || !canUndoQuest(q) || !(q.periodEnd === null || now < q.periodEnd)) return;
+    if (q.replacedBy !== undefined) {
+      const r = await db.quests.get(q.replacedBy);
+      if (r && r.status === 'offered') {
+        await db.quests.delete(r.id!);
+        if (q.periodStart !== null) {
+          const k = `replaced:${dayKey(q.periodStart)}`;
+          await setSetting(k, Math.max(0, (await getSetting<number>(k, 0)) - 1));
+        }
+      }
+    }
+    await db.quests.update(id, { status: 'offered', acceptedAt: undefined, replacedBy: undefined });
+  });
 }
 
-/** Skipping never costs anything. */
-export async function skipQuest(id: number): Promise<void> {
-  const q = await db.quests.get(id);
-  if (q && (q.status === 'offered' || q.status === 'active') && q.kind !== 'boss' && q.kind !== 'milestone') await db.quests.update(id, { status: 'skipped' });
+/** You get one free replacement for a skipped daily quest each day. */
+export const FREE_REPLACEMENTS_PER_DAY = 1;
+
+/** Picks a new extra quest (different from everything you already have today) to replace one you skipped. */
+async function createReplacement(skipped: Quest, now: number): Promise<Quest | null> {
+  const today = dayKey(now);
+  const used = await getSetting<number>(`replaced:${today}`, 0);
+  if (used >= FREE_REPLACEMENTS_PER_DAY || skipped.kind !== 'daily') return null;
+  if ((await getSetting<PlayMode>('mode', 'normal')) !== 'normal') return null;
+  const [presets, logs, flags, profile, existing] = await Promise.all([
+    db.presets.toArray(), db.logs.toArray(), getTodayFlags(now), ensureProfile(), db.quests.where('key').startsWith(`daily:${today}:`).toArray(),
+  ]);
+  const rank = rankInfoForLevel(levelFromXp(profile.totalXp).level);
+  const recent = recentContext(logs, now);
+  const advice = buildAdvice(await loadSnapshot(now));
+  const ctx: DailyCtx = {
+    flags, weekday: weekdayOf(today), questMult: rank.questMult, seed: hashString(`${today}|replace|${used}|${skipped.key}`),
+    runsLast7: recent.runsLast7, ranYesterday: recent.ranYesterday, gymLast7: recent.gymLast7, effortByCategory: recent.effortByCategory,
+    exclude: existing.map((q) => slugOf(q.key)), adapt: advice.adapt, optionalOnly: true,
+  };
+  const draft = planDaily(ctx, presets)[0];
+  if (!draft) return null;
+  const built = buildQuest(draft, `daily:${today}:${draft.slug}`, 'daily', 'daily', presets, [dayStartTs(today), dayStartTs(shiftDay(today, 1))], now);
+  if (await db.quests.where('key').equals(built.key).first()) return null;
+  const id = (await db.quests.add({ ...built, replacementOf: skipped.id } as Quest)) as number;
+  await db.quests.update(skipped.id!, { replacedBy: id });
+  await setSetting(`replaced:${today}`, used + 1);
+  return { ...built, id, replacementOf: skipped.id } as Quest;
+}
+
+/**
+ * Skipping never costs anything. The first time you skip a DAILY quest each day, a new one takes its place for free.
+ * Returns the replacement, if one was given.
+ */
+export async function skipQuest(id: number, now = Date.now()): Promise<{ replacement: Quest | null }> {
+  return db.transaction('rw', questTables(), async () => {
+    const q = await db.quests.get(id);
+    if (!q || !(q.status === 'offered' || q.status === 'active') || q.kind === 'boss' || q.kind === 'milestone') return { replacement: null };
+    await db.quests.update(id, { status: 'skipped' });
+    return { replacement: await createReplacement(q, now) };
+  });
 }
 
 export interface CustomQuestInput {

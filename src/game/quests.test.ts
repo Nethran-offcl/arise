@@ -7,7 +7,7 @@ import { logActivity, resetAllData, setMode } from './actions';
 import { buildBackup, restoreBackup } from './backup';
 import { acceptAllDaily, acceptQuest, addCustomQuest, ensureQuests, regenerateDaily, skipQuest, stopRecurring } from './quests';
 import { processRollover } from './rollover';
-import { getTodayFlags, setTodayFlags } from './schedule';
+import { setTodayFlags } from './schedule';
 import { buyItem, deleteShopItem, addReward, getCount, refundPurchase, useDoubleXp, useRestPass } from './shop';
 import { dailyTick } from './startup';
 
@@ -47,12 +47,16 @@ describe('quest generation', () => {
     expect(await db.quests.where('kind').equals('boss').count()).toBe(1);
   });
 
-  it('follows your day type: a college day includes study', async () => {
-    await resetAllData();
-    await setTodayFlags({ work: false, college: true });
-    expect(await getTodayFlags()).toEqual({ work: false, college: true });
-    await ensureQuests();
-    expect((await dailies()).some((q) => q.presetIds?.[0] === 'study')).toBe(true);
+  it('follows your day type: the Work or study quest is bigger on a work + college day than on a free day', async () => {
+    const target = async (flags: { work: boolean; college: boolean }) => {
+      await resetAllData();
+      await setTodayFlags(flags);
+      await ensureQuests();
+      return (await dailies()).find((q) => q.key.endsWith(':workstudy'))!.target;
+    };
+    expect(await target({ work: false, college: false })).toBe(40);
+    expect(await target({ work: false, college: true })).toBe(60);
+    expect(await target({ work: true, college: true })).toBe(90);
   });
 
   it('re-rolling keeps accepted quests and replaces the rest', async () => {
@@ -77,7 +81,9 @@ describe('quest generation', () => {
 });
 
 describe('completing quests', () => {
-  const target = (q: { presetIds?: string[]; target: number; metric: string }) => ({ presetId: q.presetIds![0], qty: q.metric === 'logs' ? 1 : q.target });
+  // what to log to finish a quest (the flexible Work or study quest is measured in points: 40 per hour of study)
+  const target = (q: { presetIds?: string[]; target: number; metric: string }) =>
+    q.metric === 'effort' ? { presetId: 'study', qty: q.target / 40 + 0.1 } : { presetId: q.presetIds![0], qty: q.metric === 'logs' ? 1 : q.target };
 
   it('logging the work completes the quest and pays XP and gold', async () => {
     const q = (await dailies())[0];

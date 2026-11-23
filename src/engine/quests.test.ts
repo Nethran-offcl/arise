@@ -91,12 +91,59 @@ describe('planDaily', () => {
   it('never asks for a run two days in a row (suggests a walk)', () => {
     expect(planDaily({ ...baseCtx, runsLast7: 1, ranYesterday: true }, presets)[0].presetIds![0]).toBe('walk');
   });
-  it('workdays get office tasks and college days get study', () => {
-    const ids = (c: Partial<DailyCtx>) => planDaily({ ...baseCtx, ...c }, presets).map((q) => q.presetIds![0]);
-    expect(ids({ flags: { work: true, college: false } })).toContain('office');
-    expect(ids({ flags: { work: false, college: true } })).toContain('study');
-    expect(ids({ flags: { work: true, college: true } })).toEqual(expect.arrayContaining(['office', 'study']));
-    expect(ids({ flags: { work: false, college: false } })).not.toContain('office');
+  it('every day has ONE flexible Work or study quest, whatever the day type, instead of separate study and office quests', () => {
+    const slugs = (c: Partial<DailyCtx>) => planDaily({ ...baseCtx, ...c }, presets).map((q) => q.slug);
+    for (const flags of [{ work: true, college: false }, { work: false, college: true }, { work: true, college: true }, { work: false, college: false }]) {
+      const s = slugs({ flags });
+      expect(s.filter((x) => x === 'workstudy')).toHaveLength(1);
+      expect(s).not.toContain('study');
+      expect(s).not.toContain('office');
+    }
+  });
+  it('its target follows the day: lighter on a free day, bigger when you work and study', () => {
+    const t = (flags: { work: boolean; college: boolean }) => planDaily({ ...baseCtx, flags }, presets).find((q) => q.slug === 'workstudy')!.target;
+    expect(t({ work: false, college: false })).toBe(40);
+    expect(t({ work: true, college: false })).toBe(60);
+    expect(t({ work: false, college: true })).toBe(60);
+    expect(t({ work: true, college: true })).toBe(90);
+    expect(planDaily({ ...baseCtx, questMult: 1.25 }, presets).find((q) => q.slug === 'workstudy')!.target).toBe(50);
+  });
+  it('work AND study both make it progress, and so do writing, building, practising, courses, reading and learning', () => {
+    const d = planDaily(baseCtx, presets).find((q) => q.slug === 'workstudy')!;
+    const quest = { ...d, key: 'k', kind: 'daily' as const, periodStart: null, periodEnd: null, status: 'active' as const, rewardEffort: 1, rewardGold: 1, createdAt: 0 };
+    const log = (presetId: string, categoryId: string, effortXp: number) => ({ ts: 1, presetId, categoryId, qty: 1, effortXp, isPenalty: false });
+    expect(d.metric).toBe('effort');
+    expect(questProgress(quest, [log('office', 'work', 20)], 0)).toBe(20); // work
+    expect(questProgress(quest, [log('study', 'study', 40)], 0)).toBe(40); // study
+    for (const [id, cat] of [['create', 'core'], ['skill-practice', 'core'], ['learn', 'core'], ['course', 'core'], ['reading', 'core'], ['focus', 'study'], ['work-learning', 'work'], ['assignment', 'study']]) {
+      expect(questProgress(quest, [log(id, cat, 10)], 0), id).toBe(10);
+    }
+    // things that are not work or learning do not count
+    for (const [id, cat] of [['run', 'cardio'], ['water', 'recovery'], ['journal', 'core'], ['meditation', 'core'], ['chores', 'tasks']]) {
+      expect(questProgress(quest, [log(id, cat, 10)], 0), id).toBe(0);
+    }
+    // and a custom task you add to Work or Study counts automatically
+    expect(questProgress(quest, [log('custom-thing', 'study', 30)], 0)).toBe(30);
+  });
+  it('exam mode swaps it for a specific study quest, and recovery days for gentle reading', () => {
+    const adapt = { gentle: false, noHard: false, runTarget: 3, physicalScale: 0.6, study: { base: 2.5 }, examWeeklyStudy: 10 };
+    const exam = planDaily({ ...baseCtx, adapt }, presets).map((q) => q.slug);
+    expect(exam).toContain('study');
+    expect(exam).not.toContain('workstudy');
+    const gentle = planDaily({ ...baseCtx, adapt: { ...adapt, study: null, gentle: true, noHard: true } }, presets).map((q) => q.slug);
+    expect(gentle).toContain('reading');
+    expect(gentle).not.toContain('workstudy');
+  });
+  it('if you removed both study and office tasks it quietly leaves the quest out', () => {
+    const none = presets.filter((p) => !['study', 'office'].includes(p.id));
+    expect(planDaily(baseCtx, none).map((q) => q.slug)).not.toContain('workstudy');
+  });
+  it('extras-only mode (used for free replacements) never repeats the must-have quests', () => {
+    for (let seed = 1; seed < 40; seed++) {
+      const s = planDaily({ ...baseCtx, seed, optionalOnly: true }, presets).map((q) => q.slug);
+      for (const must of ['run', 'walk', 'water', 'workstudy', 'study', 'office']) expect(s, must).not.toContain(must);
+      expect(s.length).toBeGreaterThan(0);
+    }
   });
   it('free days get at least 4 quests', () => {
     for (let seed = 1; seed < 20; seed++) expect(planDaily({ ...baseCtx, seed }, presets).length).toBeGreaterThanOrEqual(4);
@@ -122,10 +169,13 @@ describe('planWeekly and rewards', () => {
     expect(planWeekly({ questMult: 1, lastWeekRuns: 2, hasCollege: false }, presets)[0].target).toBe(3);
     expect(planWeekly({ questMult: 1.25, lastWeekRuns: 9, hasCollege: false }, presets)[0].target).toBe(3);
   });
-  it('studying replaces lifting when you have college days', () => {
-    const slugs = (c: boolean) => planWeekly({ questMult: 1, lastWeekRuns: 0, hasCollege: c }, presets).map((q) => q.slug);
-    expect(slugs(true)).toContain('study');
-    expect(slugs(false)).toContain('lift');
+  it('the week always has the flexible Work or study quest and a gym quest (no separate study quest unless exam mode)', () => {
+    for (const hasCollege of [true, false]) {
+      const w = planWeekly({ questMult: 1, lastWeekRuns: 0, hasCollege }, presets);
+      expect(w.map((q) => q.slug)).toEqual(expect.arrayContaining(['runs', 'workstudy', 'lift', 'tasks']));
+      expect(w.map((q) => q.slug)).not.toContain('study');
+      expect(w.find((q) => q.slug === 'workstudy')!.target).toBe(300);
+    }
   });
   it('rewards are half of what the task pays, times the quest kind', () => {
     const [d] = planDaily({ ...baseCtx, runsLast7: 0 }, presets); // run 3 km = 100 effort

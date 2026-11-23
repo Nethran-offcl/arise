@@ -35,6 +35,9 @@ export interface Quest {
   acceptedAt?: number;
   completedAt?: number;
   recurringId?: number;
+  /** A skipped daily quest points to its free replacement, and the replacement points back. */
+  replacedBy?: number;
+  replacementOf?: number;
   bossName?: string;
   paidXp?: number;
   paidGold?: number;
@@ -191,12 +194,32 @@ export interface DailyCtx {
   exclude: string[];
   /** Adjustments from the System engine (recovery day, exam mode, safe running). Omit for the plain plan. */
   adapt?: Adapt;
+  /** Skip the must-have quests and pick only extras (used for the free replacement when you skip a quest). */
+  optionalOnly?: boolean;
+}
+
+/** Work and study are one pool: all of these count toward the "Work or study" quest. */
+export const WORK_STUDY_CATEGORIES = ['work', 'study'];
+/** Writing, building, creating, practising a skill, courses, reading and learning something new all count as study too. */
+export const WORK_STUDY_PRESETS = ['create', 'skill-practice', 'learn', 'course', 'reading'];
+const WORK_STUDY_DESC = 'Counts any work, study, focus session, writing or building, practising a skill, a course lesson, reading, or learning something new. Roughly an hour of effort, or 3 office tasks.';
+const roundPts = (n: number) => Math.max(5, Math.round(n / 5) * 5);
+
+/** The flexible work-or-study quest. Progress is measured in effort points, so very different tasks add up fairly. */
+function workStudyDraft(slug: string, title: string, target: number, byId: Map<string, Preset>, desc: string): QuestDraft | null {
+  const rp = byId.get('study') ?? byId.get('office');
+  if (!rp) return null;
+  const perUnit = rp.xpPerUnit > 0 ? rp.xpPerUnit : 1;
+  return {
+    slug, title, desc, categoryIds: WORK_STUDY_CATEGORIES, presetIds: WORK_STUDY_PRESETS, metric: 'effort', target, unit: 'pts',
+    reward: { presetId: rp.id, qty: target / perUnit, repeats: 1 },
+  };
 }
 
 /**
  * Picks 3 to 5 daily quests from your tasks, tuned to the day type:
  *  - always one movement quest (a run if you are under 3 runs this week, otherwise a walk)
- *  - workday: office tasks, college day: study
+ *  - one flexible "Work or study" quest every day: any work, study, writing, building, practising or learning counts
  *  - the rest is filled from categories you have neglected this week, with some randomness
  * Only tasks that still exist are used, so custom/renamed/deleted presets never break it.
  */
@@ -228,22 +251,30 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
   const A = ctx.adapt;
   const phys = A?.physicalScale ?? 1;
 
-  // Mandatory quests
+  // Mandatory quests (skipped when we only want extras, e.g. a free replacement)
+  if (!ctx.optionalOnly) {
   if (A?.noHard) add('walk', 30 * Math.min(phys, 0.65)); // recovery / final-stretch days: gentle movement only
   else if (!(ctx.runsLast7 < 3 && !ctx.ranYesterday && (A ? A.runTarget !== null : true) && add('run', A?.runTarget ?? 3, !A))) add('walk', 30 * phys);
   add('water', 2, false); // every day: 2 litres, entered in one go if you like
-  // A daily "mind" quest keeps Intelligence and Sense growing even when you are not studying (reading only on recovery days)
-  const mindOptions = (A?.gentle ? ['reading'] : ['reading', 'skill-practice', 'course', 'learn', 'create']).filter((id) => byId.has(id) && !taken.has(id));
-  if (mindOptions.length) {
-    const pick = mindOptions[Math.floor(rng() * mindOptions.length)];
-    add(pick, { reading: 20, 'skill-practice': 20, course: 20, learn: 1, create: 20 }[pick] ?? 20, false);
+  if (A?.study) {
+    add('study', A.study.base, false); // exam / deadline focus: a specific study quest
+  } else if (A?.gentle) {
+    add('reading', 20, false); // recovery day: gentle reading only
+  } else if (!taken.has('workstudy')) {
+    // ONE flexible quest, always there: work or study, whichever you do. Study here includes writing, building,
+    // practising a skill, courses and learning, so it still makes sense when college is over.
+    const pts = ctx.flags.work && ctx.flags.college ? 90 : ctx.flags.work || ctx.flags.college ? 60 : 40;
+    const target = roundPts(pts * ctx.questMult);
+    const d = workStudyDraft('workstudy', `Work or study: ${target} points`, target, byId, WORK_STUDY_DESC);
+    if (d) {
+      picks.push(d);
+      taken.add('workstudy');
+    }
   }
-  if (A?.study) add('study', A.study.base, false); // exam / deadline focus, even on a non-college day
-  if (ctx.flags.work && !A?.gentle) add('office', 3);
-  if (ctx.flags.college && !A?.gentle) add('study', 1);
   if (A?.gentle) {
     const w = picks.find((p) => p.slug === 'walk');
     if (w) w.desc = 'Easy day: gentle movement only. Resting is part of leveling up.';
+  }
   }
 
   // Optional pool: [task id, weight]
@@ -276,7 +307,7 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
 
   const desired = Math.min(5, Math.max(picks.length, 3 + (free ? 1 : 0) + (anyNeglected ? 1 : 0)));
   const bases: Record<string, number> = { gym: 45 * phys, pending: 2, chores: 1, 'sleep-ontime': 1, journal: 1, meditation: 10, stretch: 15, reading: 20, learn: 1, 'meal-prep': 1, assignment: 1 };
-  const usedCats = new Set(picks.map((p) => byId.get(p.presetIds![0])?.categoryId));
+  const usedCats = new Set(picks.map((p) => (p.slug === 'workstudy' ? 'study' : byId.get(p.presetIds![0])?.categoryId)));
   while (picks.length < desired && pool.length) {
     const live = pool.filter((c) => c.w > 0);
     if (!live.length) break;
@@ -306,7 +337,7 @@ export interface WeeklyCtx {
   adapt?: Adapt;
 }
 
-/** Three weekly quests (a boss raid is planned separately). */
+/** Up to four weekly quests (a boss raid is planned separately). */
 export function planWeekly(ctx: WeeklyCtx, presets: Preset[]): QuestDraft[] {
   const ids = new Set(presets.filter((p) => !p.isPenalty).map((p) => p.id));
   const out: QuestDraft[] = [];
@@ -315,10 +346,17 @@ export function planWeekly(ctx: WeeklyCtx, presets: Preset[]): QuestDraft[] {
     const t = ctx.lastWeekRuns >= 2 ? 3 : 2;
     out.push({ slug: 'runs', title: `Run ${t} times this week (2 km or more)`, presetIds: ['run'], metric: 'logs', minQty: 2, target: t, unit: 'runs', reward: { presetId: 'run', qty: 3, repeats: t } });
   }
-  if ((ctx.hasCollege || ctx.adapt?.examWeeklyStudy) && ids.has('study')) {
-    const t = ctx.adapt?.examWeeklyStudy ?? roundTarget('hours', 4 * ctx.questMult);
+  if (ctx.adapt?.examWeeklyStudy && ids.has('study')) {
+    // Exam time: a specific study target
+    const t = ctx.adapt.examWeeklyStudy;
     out.push({ slug: 'study', title: `Study ${t} hours this week`, presetIds: ['study'], metric: 'qty', target: t, unit: 'h', reward: { presetId: 'study', qty: t, repeats: 1 } });
-  } else if (ids.has('gym')) {
+  } else {
+    // Otherwise one flexible quest: any work or learning counts (study, writing, building, practising, courses...)
+    const t = roundPts(300 * ctx.questMult);
+    const d = workStudyDraft('workstudy', `Work or study: ${t} points this week`, t, new Map(presets.filter((p) => !p.isPenalty).map((p) => [p.id, p] as const)), WORK_STUDY_DESC);
+    if (d) out.push(d);
+  }
+  if (ids.has('gym')) {
     out.push({ slug: 'lift', title: 'Do 2 gym sessions this week', presetIds: ['gym'], metric: 'logs', target: 2, unit: 'sessions', reward: { presetId: 'gym', qty: 45, repeats: 2 } });
   }
   if (ids.has('pending')) {
