@@ -115,6 +115,7 @@ describe('daily Work or study quest (study, work and learning share one quest)',
   it('office work and study sessions add up toward the same quest', async () => {
     await dailyTick();
     const q = (await db.quests.where('key').startsWith(`daily:`).toArray()).find((x) => x.key.endsWith(':workstudy'))!;
+    await db.quests.update(q.id!, { target: 60 }); // fixed, so the test does not depend on the day type (which varies by weekday)
     const half = await logActivity({ ...base, presetId: 'office', qty: 2, ts: Date.now() - 1000 }); // 40 effort
     expect(half.questsCompleted.some((c) => c.title === q.title)).toBe(false);
     const rest = await logActivity({ ...base, presetId: 'study', qty: 1, ts: Date.now() }); // + 40 effort
