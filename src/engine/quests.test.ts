@@ -53,6 +53,16 @@ describe('questProgress', () => {
   it('uses the current streak for streak quests', () => {
     expect(questProgress(quest({ metric: 'streak' }), logs, 6)).toBe(6);
   });
+  it('trekking (hours) and incline walking (minutes) count as walking for a Walk quest', () => {
+    const walkQ = quest({ metric: 'qty', presetIds: ['walk'], target: 30 });
+    expect(questProgress(walkQ, [log({ presetId: 'trekking', qty: 0.5 })], 0)).toBe(30);
+    expect(questProgress(walkQ, [log({ presetId: 'incline-walk', qty: 20 }), log({ presetId: 'walk', qty: 10 })], 0)).toBe(30);
+    expect(questProgress(walkQ, [log({ presetId: 'run', qty: 5 })], 0)).toBe(0); // running is not walking
+  });
+  it('but a run quest or a category goal is not affected by trekking', () => {
+    expect(questProgress(quest({ metric: 'qty', presetIds: ['run'] }), [log({ presetId: 'trekking', qty: 2 })], 0)).toBe(0);
+    expect(questProgress(quest({ metric: 'qty', presetIds: ['trekking'] }), [log({ presetId: 'trekking', qty: 2 })], 0)).toBe(2);
+  });
 });
 
 describe('boss HP', () => {

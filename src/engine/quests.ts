@@ -63,12 +63,19 @@ export interface QuestLog {
   isPenalty: boolean;
 }
 
+/** Other tasks that are "walking" too: how many walking minutes one logged unit counts for (trekking is logged in hours). */
+const WALK_EQUIVALENTS: Record<string, number> = { 'incline-walk': 1, trekking: 60 };
+
 const matches = (q: Quest, l: QuestLog): boolean => {
   const hasP = !!q.presetIds?.length;
   const hasC = !!q.categoryIds?.length;
   if (!hasP && !hasC) return true;
   return (hasP && q.presetIds!.includes(l.presetId)) || (hasC && q.categoryIds!.includes(l.categoryId));
 };
+
+/** A walking quest (only the Walk task) is also satisfied by incline walking and trekking / hiking. */
+const walkMinutes = (q: Quest, l: QuestLog): number =>
+  q.metric === 'qty' && q.presetIds?.length === 1 && q.presetIds[0] === 'walk' && !q.categoryIds?.length && WALK_EQUIVALENTS[l.presetId] ? l.qty * WALK_EQUIVALENTS[l.presetId] : 0;
 
 export function questProgress(q: Quest, logs: QuestLog[], streak: number): number {
   if (q.metric === 'streak') return streak;
@@ -78,6 +85,8 @@ export function questProgress(q: Quest, logs: QuestLog[], streak: number): numbe
     if (l.isPenalty) continue;
     if (q.periodStart !== null && l.ts < q.periodStart) continue;
     if (q.periodEnd !== null && l.ts >= q.periodEnd) continue;
+    const walk = walkMinutes(q, l);
+    if (walk) { sum += walk; continue; }
     if (!matches(q, l)) continue;
     if (q.metric === 'qty') sum += l.qty;
     else if (q.metric === 'logs') sum += l.qty >= (q.minQty ?? 0) ? 1 : 0;
@@ -237,7 +246,7 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
     picks.push({
       slug: id,
       title: questTitle(p, target),
-      desc: id === 'water' ? 'Log it whenever suits you, even once at the end of the day.' : undefined,
+      desc: id === 'water' ? 'Log it whenever suits you, even once at the end of the day.' : id === 'walk' ? 'Incline walking and trekking / hiking count too.' : undefined,
       presetIds: [id],
       metric: p.unit === 'none' ? 'logs' : 'qty',
       target,
