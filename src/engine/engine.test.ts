@@ -70,7 +70,7 @@ describe('rewards', () => {
     expect(computeReward(preset('run'), 9999, 'hard', ctx).xp).toBe(DEFAULT_FORMULA.maxXpPerLog);
   });
   it('always gives at least 1 xp for a real task', () => {
-    expect(computeReward(preset('walk'), 1, 'light', ctx).xp).toBe(1);
+    expect(computeReward(preset('walk'), 0.01, 'light', ctx).xp).toBe(1);
   });
   it('sanitizes silly formula edits', () => {
     const f = sanitizeFormula({ ...DEFAULT_FORMULA, xpMult: 999, statRate: -3 });

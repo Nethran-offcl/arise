@@ -68,7 +68,7 @@ You never have to log everything. Even one small task keeps your streak alive.
 
 **Six stats.** Strength, Agility, Vitality, Intelligence, Discipline, Sense. Each category feeds its own stats. Study feeds Intelligence and Sense, Work feeds Intelligence and Discipline, Core feeds Intelligence and Sense evenly. You also get 3 free points per level to spend.
 
-**Mastery.** The more effort you put into a category, the more every task in it pays (+2% per mastery level, up to +30%). Cardio and Sports share one mastery. Study and Core share one "Mind" mastery.
+**Mastery.** The more effort you put into a category, the more every task in it pays (+2% per mastery level, up to +30%). Walking is measured in km like running (in the log form you can switch to steps: about 1,300 steps per km), so 10,000 steps pays more than 5,000. Cardio and Sports share one mastery. Study and Core share one "Mind" mastery.
 
 **HP / energy.** Tiring tasks cost HP in proportion to time, distance and intensity. HP comes back from sleep, rest, and +30 per day automatically (editable). You can always set it by hand.
 

@@ -5,9 +5,9 @@ const DAY = 86_400_000;
 
 /** [daysAgo, presetId, qty] */
 const DEMO: [number, string, number][] = [
-  [9, 'run', 3], [9, 'study', 1.5], [8, 'walk', 30], [8, 'office', 3], [7, 'gym', 50], [7, 'sleep-hours', 7.5],
+  [9, 'run', 3], [9, 'study', 1.5], [8, 'walk', 2.5], [8, 'office', 3], [7, 'gym', 50], [7, 'sleep-hours', 7.5],
   [6, 'badminton', 60], [6, 'assignment', 1], [5, 'run', 3.2], [5, 'chores', 2], [4, 'study', 2], [4, 'journal', 1],
-  [3, 'walk', 40], [3, 'pending', 3], [2, 'run', 3.5], [2, 'p-doomscroll', 1], [2, 'water', 4], [1, 'gym', 45],
+  [3, 'walk', 3.3], [3, 'pending', 3], [2, 'run', 3.5], [2, 'p-doomscroll', 1], [2, 'water', 4], [1, 'gym', 45],
   [1, 'healthy-meal', 2], [1, 'sleep-ontime', 1], [0, 'study', 1], [0, 'office', 2],
 ];
 

@@ -90,7 +90,8 @@ const penalty = (
 export const DEFAULT_PRESETS: Preset[] = [
   // Cardio (AGI)
   task({ id: 'run', c: 'cardio', n: 'Run', u: 'km', q: 3, b: 10, x: 30, g: 3, gu: 8, hpu: -2, perf: PACE }),
-  task({ id: 'walk', c: 'cardio', n: 'Walk', u: 'minutes', q: 30, x: 0.8, gu: 0.3, hpu: -0.03 }),
+  // Walking is distance-based like running: the further you go, the more it pays (type km, or steps in the log form)
+  task({ id: 'walk', c: 'cardio', n: 'Walk', u: 'km', q: 2.5, x: 10, gu: 3.5, hpu: -0.4 }),
   // Strength (STR)
   task({ id: 'gym', c: 'strength', n: 'Gym session', u: 'minutes', q: 45, b: 10, x: 0.9, g: 5, gu: 0.3, hpu: -0.2, lifts: true }),
   task({ id: 'pushups', c: 'strength', n: 'Push-ups', u: 'count', q: 20, x: 0.6, gu: 0.2, hpu: -0.03, perf: REPS }),
@@ -139,12 +140,12 @@ export const DEFAULT_PRESETS: Preset[] = [
   task({ id: 'planning', c: 'core', n: 'Plan the day/week', b: 12, g: 3 }),
   task({ id: 'review', c: 'core', n: 'Reflect & review', b: 20, g: 5 }),
   // Course corrections (gentle: small XP loss, never any food restriction as a "fix")
-  penalty('p-junk', 'Junk food / binge', 5, 3, false, { text: 'Drink a glass of water and take a short walk.', presetId: 'walk', qty: 15 }),
+  penalty('p-junk', 'Junk food / binge', 5, 3, false, { text: 'Drink a glass of water and take a short walk (about 1.5 km).', presetId: 'walk', qty: 1.5 }),
   penalty('p-sugar', 'Sugary drink', 3, 2, false, { text: 'Have a glass of water.', presetId: 'water', qty: 1 }),
   penalty('p-skip-workout', 'Skipped planned workout', 8, 3, true, { text: 'Do 20 bodyweight reps (about 5 minutes).', presetId: 'bodyweight', qty: 20 }),
   penalty('p-late-sleep', 'Late-night sleep', 8, 6, true, { text: 'Aim for an early bedtime tonight.', presetId: 'sleep-ontime', qty: 1 }),
-  penalty('p-doomscroll', 'Procrastination / doomscrolling', 8, 3, true, { text: 'Take a 15-minute walk to reset.', presetId: 'walk', qty: 15 }),
+  penalty('p-doomscroll', 'Procrastination / doomscrolling', 8, 3, true, { text: 'Take a short walk to reset (about 1.5 km).', presetId: 'walk', qty: 1.5 }),
   penalty('p-deadline', 'Missed a deadline', 10, 4, true, { text: 'Clear one small pending task now.', presetId: 'pending', qty: 1 }),
-  penalty('p-quests', 'Daily quests missed', 6, 2, false, { text: 'Take a 15-minute walk to reset.', presetId: 'walk', qty: 15 }),
+  penalty('p-quests', 'Daily quests missed', 6, 2, false, { text: 'Take a short walk to reset (about 1.5 km).', presetId: 'walk', qty: 1.5 }),
   penalty('p-skip-meal', 'Skipped a meal', 4, 4, false, { text: 'Have a proper meal or snack when you can.', presetId: 'healthy-meal', qty: 1 }),
 ];

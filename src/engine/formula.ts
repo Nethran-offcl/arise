@@ -60,6 +60,9 @@ export function sanitizeFormula(f: Formula): Formula {
   };
 }
 
+/** Walking can be typed as steps: about 1,300 steps make a kilometre (10,000 steps is roughly 7.7 km). */
+export const STEPS_PER_KM = 1300;
+
 /** Largest believable amount for one log (stops typos like 5000 km from paying out). */
 export const maxQtyFor = (unit: UnitKind): number => ({ none: 1, count: 1000, minutes: 720, hours: 24, km: 250, liters: 10 })[unit];
 

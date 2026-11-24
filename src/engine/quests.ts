@@ -63,8 +63,8 @@ export interface QuestLog {
   isPenalty: boolean;
 }
 
-/** Other tasks that are "walking" too: how many walking minutes one logged unit counts for (trekking is logged in hours). */
-const WALK_EQUIVALENTS: Record<string, number> = { 'incline-walk': 1, trekking: 60 };
+/** Other tasks that are "walking" too: how many walking km one logged unit counts for (incline walking is logged in minutes, trekking in hours; both count like a 5 km/h walk). */
+const WALK_EQUIVALENTS: Record<string, number> = { 'incline-walk': 5 / 60, trekking: 5 };
 
 const matches = (q: Quest, l: QuestLog): boolean => {
   const hasP = !!q.presetIds?.length;
@@ -74,7 +74,7 @@ const matches = (q: Quest, l: QuestLog): boolean => {
 };
 
 /** A walking quest (only the Walk task) is also satisfied by incline walking and trekking / hiking. */
-const walkMinutes = (q: Quest, l: QuestLog): number =>
+const walkKm = (q: Quest, l: QuestLog): number =>
   q.metric === 'qty' && q.presetIds?.length === 1 && q.presetIds[0] === 'walk' && !q.categoryIds?.length && WALK_EQUIVALENTS[l.presetId] ? l.qty * WALK_EQUIVALENTS[l.presetId] : 0;
 
 export function questProgress(q: Quest, logs: QuestLog[], streak: number): number {
@@ -85,7 +85,7 @@ export function questProgress(q: Quest, logs: QuestLog[], streak: number): numbe
     if (l.isPenalty) continue;
     if (q.periodStart !== null && l.ts < q.periodStart) continue;
     if (q.periodEnd !== null && l.ts >= q.periodEnd) continue;
-    const walk = walkMinutes(q, l);
+    const walk = walkKm(q, l);
     if (walk) { sum += walk; continue; }
     if (!matches(q, l)) continue;
     if (q.metric === 'qty') sum += l.qty;
@@ -246,7 +246,7 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
     picks.push({
       slug: id,
       title: questTitle(p, target),
-      desc: id === 'water' ? 'Log it whenever suits you, even once at the end of the day.' : id === 'walk' ? 'Incline walking and trekking / hiking count too.' : undefined,
+      desc: id === 'water' ? 'Log it whenever suits you, even once at the end of the day.' : id === 'walk' ? 'Log it in km or steps. Incline walking and trekking / hiking count too.' : undefined,
       presetIds: [id],
       metric: p.unit === 'none' ? 'logs' : 'qty',
       target,
@@ -262,8 +262,8 @@ export function planDaily(ctx: DailyCtx, presets: Preset[]): QuestDraft[] {
 
   // Mandatory quests (skipped when we only want extras, e.g. a free replacement)
   if (!ctx.optionalOnly) {
-  if (A?.noHard) add('walk', 30 * Math.min(phys, 0.65)); // recovery / final-stretch days: gentle movement only
-  else if (!(ctx.runsLast7 < 3 && !ctx.ranYesterday && (A ? A.runTarget !== null : true) && add('run', A?.runTarget ?? 3, !A))) add('walk', 30 * phys);
+  if (A?.noHard) add('walk', 2.5 * Math.min(phys, 0.65)); // recovery / final-stretch days: gentle movement only
+  else if (!(ctx.runsLast7 < 3 && !ctx.ranYesterday && (A ? A.runTarget !== null : true) && add('run', A?.runTarget ?? 3, !A))) add('walk', 2.5 * phys);
   add('water', 2, false); // every day: 2 litres, entered in one go if you like
   if (A?.study) {
     add('study', A.study.base, false); // exam / deadline focus: a specific study quest

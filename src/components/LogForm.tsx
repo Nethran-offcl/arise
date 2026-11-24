@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useMemo, useState } from 'react';
 import type { LogEntry } from '../db/db';
-import { computePenalty, computeReward, maxQtyFor, presetWeights } from '../engine/formula';
+import { computePenalty, computeReward, maxQtyFor, presetWeights, STEPS_PER_KM } from '../engine/formula';
 import { liftsBonus, type Lift } from '../engine/lifts';
 import { levelScale } from '../engine/levels';
 import { masteryInfo, performanceBonus } from '../engine/progress';
@@ -39,6 +39,7 @@ export function LogForm({ preset, existing, onDone }: Props) {
 
   const [qty, setQty] = useState(String(existing?.qty ?? preset.defaultQty));
   const [ml, setMl] = useState(false); // litres presets (water) can be typed in ml
+  const [steps, setSteps] = useState(false); // walking can be typed as steps instead of km
   const [intensity, setIntensity] = useState<Intensity>(existing?.intensity ?? 'normal');
   const [when, setWhen] = useState(toLocalInput(existing?.ts ?? Date.now()));
   const [note, setNote] = useState(existing?.note ?? '');
@@ -57,8 +58,9 @@ export function LogForm({ preset, existing, onDone }: Props) {
 
   const maxQ = maxQtyFor(preset.unit);
   const isLiters = preset.unit === 'liters';
+  const isWalk = preset.id === 'walk' && preset.unit === 'km';
   const typedAmount = Number(qty) || 0;
-  const inUnits = isLiters && ml ? typedAmount / 1000 : typedAmount;
+  const inUnits = isLiters && ml ? typedAmount / 1000 : isWalk && steps ? typedAmount / STEPS_PER_KM : typedAmount;
   const q = Math.min(maxQ, Math.max(0, inUnits));
   // Not a limit, just a typo check: far bigger than anything you've logged before needs a tick.
   const bigJump = !!prog?.maxQty && q > 3 * prog.maxQty && !(existing && q <= existing.qty);
@@ -120,8 +122,8 @@ export function LogForm({ preset, existing, onDone }: Props) {
     <div className="space-y-3">
       <p className="text-lg font-semibold">{preset.name}</p>
       {hasQty && (
-        <Field label={`Amount (${isLiters ? (ml ? 'ml' : 'L') : UNIT_SHORT[preset.unit]})`}>
-          <input className={inputCls} type="number" inputMode="decimal" min={0} step={isLiters ? (ml ? 50 : 0.25) : preset.unit === 'km' || preset.unit === 'hours' ? 0.1 : 1}
+        <Field label={`Amount (${isLiters ? (ml ? 'ml' : 'L') : isWalk && steps ? 'steps' : UNIT_SHORT[preset.unit]})`}>
+          <input className={inputCls} type="number" inputMode="decimal" min={0} step={isLiters ? (ml ? 50 : 0.25) : isWalk && steps ? 100 : preset.unit === 'km' || preset.unit === 'hours' ? 0.1 : 1}
             value={qty} onChange={(e) => setQty(e.target.value)} />
           {isLiters && (
             <div className="mt-2 flex flex-wrap gap-2 text-sm">
@@ -133,6 +135,14 @@ export function LogForm({ preset, existing, onDone }: Props) {
                   +{v >= 1000 ? `${v / 1000} L` : `${v} ml`}
                 </button>
               ))}
+            </div>
+          )}
+          {isWalk && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <button type="button" className="rounded-full border border-line px-3 text-muted" onClick={() => { const next = steps ? typedAmount / STEPS_PER_KM : typedAmount * STEPS_PER_KM; setQty(String(steps ? Math.round(next * 100) / 100 : Math.round(next / 100) * 100)); setSteps(!steps); }}>
+                Switch to {steps ? 'km' : 'steps'}
+              </button>
+              <span className="text-xs text-muted">{steps ? `≈ ${(typedAmount / STEPS_PER_KM).toFixed(1)} km` : `≈ ${Math.round(typedAmount * STEPS_PER_KM).toLocaleString()} steps`} (about {STEPS_PER_KM.toLocaleString()} steps per km)</span>
             </div>
           )}
           {inUnits > maxQ && <span className="mt-1 block text-xs text-red-300">Max {maxQ} per log. Counted as {maxQ}.</span>}

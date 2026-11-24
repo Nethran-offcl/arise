@@ -53,10 +53,10 @@ describe('questProgress', () => {
   it('uses the current streak for streak quests', () => {
     expect(questProgress(quest({ metric: 'streak' }), logs, 6)).toBe(6);
   });
-  it('trekking (hours) and incline walking (minutes) count as walking for a Walk quest', () => {
-    const walkQ = quest({ metric: 'qty', presetIds: ['walk'], target: 30 });
-    expect(questProgress(walkQ, [log({ presetId: 'trekking', qty: 0.5 })], 0)).toBe(30);
-    expect(questProgress(walkQ, [log({ presetId: 'incline-walk', qty: 20 }), log({ presetId: 'walk', qty: 10 })], 0)).toBe(30);
+  it('trekking (hours) and incline walking (minutes) count as walking for a Walk quest, like a 5 km/h walk', () => {
+    const walkQ = quest({ metric: 'qty', presetIds: ['walk'], target: 2.5, unit: 'km' });
+    expect(questProgress(walkQ, [log({ presetId: 'trekking', qty: 0.5 })], 0)).toBeCloseTo(2.5);
+    expect(questProgress(walkQ, [log({ presetId: 'incline-walk', qty: 30 }), log({ presetId: 'walk', qty: 1 })], 0)).toBeCloseTo(3.5);
     expect(questProgress(walkQ, [log({ presetId: 'run', qty: 5 })], 0)).toBe(0); // running is not walking
   });
   it('but a run quest or a category goal is not affected by trekking', () => {

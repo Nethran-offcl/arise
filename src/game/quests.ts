@@ -197,7 +197,7 @@ export async function ensureQuests(now = Date.now()): Promise<void> {
       // Surprise emergency quest (about 15% of days)
       if (!advice.adapt.gentle && hashString(`${today}|emg`) % 100 < 15 && !(await db.quests.where('key').equals(`emergency:${today}`).first())) {
         const rng = mulberry32(hashString(`${today}|emg2`));
-        const options: [string, number][] = [['walk', 15], ['bodyweight', 20], ['chores', 1], ['journal', 1], ['pending', 1]];
+        const options: [string, number][] = [['walk', 1.5], ['bodyweight', 20], ['chores', 1], ['journal', 1], ['pending', 1]];
         const ids = new Set(presets.map((p) => p.id));
         const usable = options.filter(([id]) => ids.has(id));
         if (usable.length) {

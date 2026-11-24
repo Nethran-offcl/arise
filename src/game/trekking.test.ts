@@ -33,7 +33,7 @@ describe('Trekking / hiking', () => {
   });
 
   it('is a taxing effort: a 2 hour trek costs about 12 HP and pays more than a long walk', async () => {
-    const walk = await logActivity({ ...base, presetId: 'walk', qty: 120, ts: Date.now() - 1000 });
+    const walk = await logActivity({ ...base, presetId: 'walk', qty: 8, ts: Date.now() - 1000 });
     const trek = await logActivity({ ...base, presetId: 'trekking', qty: 2, ts: Date.now() });
     expect(trek.hp).toBe(-12);
     expect(trek.xp).toBe(140); // 10 + 65 x 2

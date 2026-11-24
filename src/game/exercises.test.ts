@@ -44,7 +44,7 @@ describe('more exercises', () => {
   });
 
   it('incline walking pays more than flat walking and works the legs and lungs (Agility)', async () => {
-    const flat = await logActivity({ ...base, presetId: 'walk', qty: 30, ts: Date.now() - 1000 });
+    const flat = await logActivity({ ...base, presetId: 'walk', qty: 2.5, ts: Date.now() - 1000 }); // 30 minutes of walking is about 2.5 km
     const incline = await logActivity({ ...base, presetId: 'incline-walk', qty: 30, ts: Date.now() });
     expect(incline.xp).toBeGreaterThan(flat.xp);
     expect(incline.statGains.AGI).toBeGreaterThan(0);

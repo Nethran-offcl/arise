@@ -86,8 +86,9 @@ export async function setHp(hp: number): Promise<void> {
  *  v13: Trekking / hiking (builds Agility, Strength and Vitality).
  *  v14: cardio builds Vitality as well as Agility (70/30); sports are 50% Agility, 30% Strength, 20% Vitality.
  *  v15: Gym sessions track exercises (weight and reps each) instead of one shared weight.
+ *  v16: Walk is measured in km (like running) instead of minutes, and can be typed as steps.
  */
-export const SEED_VERSION = 15;
+export const SEED_VERSION = 16;
 async function migrateSeed(): Promise<void> {
   const v = await getSetting<number>('seedVersion', 1);
   if (v >= SEED_VERSION) return;
@@ -104,6 +105,7 @@ async function migrateSeed(): Promise<void> {
   if (v < 10) await mindStats();
   if (v < 11) await coreEven();
   if (v < 14) await cardioVitality();
+  if (v < 16) await walkByDistance();
   if (v < 15 && (await db.presets.get('gym'))?.builtin) await db.presets.update('gym', { trackLifts: true, perf: undefined });
   if (v < 13 && !(await db.presets.get('trekking'))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === 'trekking')!);
   if (v < 12) {
@@ -173,6 +175,39 @@ export async function mindStats(): Promise<void> {
     if (work && sameWeights(work.weights, { DIS: 0.8, INT: 0.2 })) await db.categories.update('work', { weights: { INT: 0.5, DIS: 0.5 } });
     for (const id of ['course', 'skill-practice', 'create', 'work-learning']) {
       if (!(await db.presets.get(id))) await db.presets.put(DEFAULT_PRESETS.find((x) => x.id === id)!);
+    }
+  });
+}
+
+/** v16: Walk becomes distance-based (12 minutes of walking = 1 km). Old logs, open quests and rewards are converted. */
+export async function walkByDistance(): Promise<void> {
+  await db.transaction('rw', [db.presets, db.logs, db.quests, db.questTemplates], async () => {
+    const walk = await db.presets.get('walk');
+    if (!walk || walk.unit !== 'minutes') return;
+    const d = DEFAULT_PRESETS.find((x) => x.id === 'walk')!;
+    const wasDefault = walk.xpPerUnit === 0.8 && walk.goldPerUnit === 0.3 && walk.defaultQty === 30;
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    await db.presets.update('walk', wasDefault
+      ? { unit: 'km', defaultQty: d.defaultQty, xpPerUnit: d.xpPerUnit, goldPerUnit: d.goldPerUnit, hpPerUnit: d.hpPerUnit }
+      : { unit: 'km', defaultQty: r2(walk.defaultQty / 12), xpPerUnit: r2(walk.xpPerUnit * 12), goldPerUnit: r2(walk.goldPerUnit * 12), hpPerUnit: r2((walk.hpPerUnit ?? 0) * 12), rewardCap: walk.rewardCap ? r2(walk.rewardCap / 12) : undefined });
+    for (const l of await db.logs.where('presetId').equals('walk').toArray()) {
+      if (l.unit !== 'km') await db.logs.update(l.id!, { qty: r2(l.qty / 12), unit: 'km' });
+    }
+    for (const q of await db.quests.toArray()) {
+      if (q.metric === 'qty' && q.presetIds?.length === 1 && q.presetIds[0] === 'walk' && q.unit === 'min' && (q.status === 'offered' || q.status === 'active')) {
+        const target = Math.max(0.5, Math.round((q.target / 12) * 2) / 2);
+        await db.quests.update(q.id!, { target, unit: 'km', title: /^Walk: /.test(q.title) ? `Walk: ${target} km` : q.title });
+      }
+    }
+    for (const t of await db.questTemplates.toArray()) {
+      if (t.presetId === 'walk') await db.questTemplates.update(t.id!, { target: Math.max(0.5, Math.round((t.target / 12) * 2) / 2) });
+    }
+    for (const id of ['p-junk', 'p-doomscroll', 'p-quests']) {
+      const p = await db.presets.get(id);
+      if (p?.builtin && p.penaltyQuest?.presetId === 'walk' && p.penaltyQuest.qty === 15) {
+        const dp = DEFAULT_PRESETS.find((x) => x.id === id)!;
+        await db.presets.update(id, { penaltyQuest: dp.penaltyQuest });
+      }
     }
   });
 }
